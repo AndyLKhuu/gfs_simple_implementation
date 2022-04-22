@@ -1,8 +1,8 @@
 syntax = "proto3";
 package master;
-option go_package = "gfs/master";
+option go_package = "gfs/chunkserver";
 
-service Master {
+service ChunkServer {
   // Sends a heart beat message
   rpc SendHeartBeatMessage (HeartBeatMessage) returns (HeartBeatMessageReply) {}
   // Sends another greeting
