@@ -23,9 +23,13 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MasterClient interface {
 	// Sends a heart beat message
-	SendHeartBeatMessage(ctx context.Context, in *HeartBeatMessage, opts ...grpc.CallOption) (*HeartBeatMessageReply, error)
-	// Sends another greeting
-	SayHelloAgain(ctx context.Context, in *HeartBeatMessage, opts ...grpc.CallOption) (*HeartBeatMessageReply, error)
+	ReceiveHeartBeatMessage(ctx context.Context, in *ChunkServerID, opts ...grpc.CallOption) (*Ack, error)
+	// Retrieves the chunk handler of a chunk and the locations of its replicas
+	GetFileLocation(ctx context.Context, in *ChunkLocationRequest, opts ...grpc.CallOption) (*ChunkLocationReply, error)
+	// Retrieve the fixed system chunksize
+	GetSystemChunkSize(ctx context.Context, in *SystemChunkSizeRequest, opts ...grpc.CallOption) (*ChunkSize, error)
+	// ClientWriteRequest
+	SendClientWriteRequest(ctx context.Context, in *ClientWriteRequest, opts ...grpc.CallOption) (*Ack, error)
 }
 
 type masterClient struct {
@@ -36,18 +40,36 @@ func NewMasterClient(cc grpc.ClientConnInterface) MasterClient {
 	return &masterClient{cc}
 }
 
-func (c *masterClient) SendHeartBeatMessage(ctx context.Context, in *HeartBeatMessage, opts ...grpc.CallOption) (*HeartBeatMessageReply, error) {
-	out := new(HeartBeatMessageReply)
-	err := c.cc.Invoke(ctx, "/master.Master/SendHeartBeatMessage", in, out, opts...)
+func (c *masterClient) ReceiveHeartBeatMessage(ctx context.Context, in *ChunkServerID, opts ...grpc.CallOption) (*Ack, error) {
+	out := new(Ack)
+	err := c.cc.Invoke(ctx, "/master.Master/ReceiveHeartBeatMessage", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *masterClient) SayHelloAgain(ctx context.Context, in *HeartBeatMessage, opts ...grpc.CallOption) (*HeartBeatMessageReply, error) {
-	out := new(HeartBeatMessageReply)
-	err := c.cc.Invoke(ctx, "/master.Master/SayHelloAgain", in, out, opts...)
+func (c *masterClient) GetFileLocation(ctx context.Context, in *ChunkLocationRequest, opts ...grpc.CallOption) (*ChunkLocationReply, error) {
+	out := new(ChunkLocationReply)
+	err := c.cc.Invoke(ctx, "/master.Master/GetFileLocation", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *masterClient) GetSystemChunkSize(ctx context.Context, in *SystemChunkSizeRequest, opts ...grpc.CallOption) (*ChunkSize, error) {
+	out := new(ChunkSize)
+	err := c.cc.Invoke(ctx, "/master.Master/GetSystemChunkSize", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *masterClient) SendClientWriteRequest(ctx context.Context, in *ClientWriteRequest, opts ...grpc.CallOption) (*Ack, error) {
+	out := new(Ack)
+	err := c.cc.Invoke(ctx, "/master.Master/SendClientWriteRequest", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -59,9 +81,13 @@ func (c *masterClient) SayHelloAgain(ctx context.Context, in *HeartBeatMessage, 
 // for forward compatibility
 type MasterServer interface {
 	// Sends a heart beat message
-	SendHeartBeatMessage(context.Context, *HeartBeatMessage) (*HeartBeatMessageReply, error)
-	// Sends another greeting
-	SayHelloAgain(context.Context, *HeartBeatMessage) (*HeartBeatMessageReply, error)
+	ReceiveHeartBeatMessage(context.Context, *ChunkServerID) (*Ack, error)
+	// Retrieves the chunk handler of a chunk and the locations of its replicas
+	GetFileLocation(context.Context, *ChunkLocationRequest) (*ChunkLocationReply, error)
+	// Retrieve the fixed system chunksize
+	GetSystemChunkSize(context.Context, *SystemChunkSizeRequest) (*ChunkSize, error)
+	// ClientWriteRequest
+	SendClientWriteRequest(context.Context, *ClientWriteRequest) (*Ack, error)
 	mustEmbedUnimplementedMasterServer()
 }
 
@@ -69,11 +95,17 @@ type MasterServer interface {
 type UnimplementedMasterServer struct {
 }
 
-func (UnimplementedMasterServer) SendHeartBeatMessage(context.Context, *HeartBeatMessage) (*HeartBeatMessageReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SendHeartBeatMessage not implemented")
+func (UnimplementedMasterServer) ReceiveHeartBeatMessage(context.Context, *ChunkServerID) (*Ack, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReceiveHeartBeatMessage not implemented")
 }
-func (UnimplementedMasterServer) SayHelloAgain(context.Context, *HeartBeatMessage) (*HeartBeatMessageReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SayHelloAgain not implemented")
+func (UnimplementedMasterServer) GetFileLocation(context.Context, *ChunkLocationRequest) (*ChunkLocationReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetFileLocation not implemented")
+}
+func (UnimplementedMasterServer) GetSystemChunkSize(context.Context, *SystemChunkSizeRequest) (*ChunkSize, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSystemChunkSize not implemented")
+}
+func (UnimplementedMasterServer) SendClientWriteRequest(context.Context, *ClientWriteRequest) (*Ack, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SendClientWriteRequest not implemented")
 }
 func (UnimplementedMasterServer) mustEmbedUnimplementedMasterServer() {}
 
@@ -88,38 +120,74 @@ func RegisterMasterServer(s grpc.ServiceRegistrar, srv MasterServer) {
 	s.RegisterService(&Master_ServiceDesc, srv)
 }
 
-func _Master_SendHeartBeatMessage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(HeartBeatMessage)
+func _Master_ReceiveHeartBeatMessage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ChunkServerID)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MasterServer).SendHeartBeatMessage(ctx, in)
+		return srv.(MasterServer).ReceiveHeartBeatMessage(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/master.Master/SendHeartBeatMessage",
+		FullMethod: "/master.Master/ReceiveHeartBeatMessage",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MasterServer).SendHeartBeatMessage(ctx, req.(*HeartBeatMessage))
+		return srv.(MasterServer).ReceiveHeartBeatMessage(ctx, req.(*ChunkServerID))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Master_SayHelloAgain_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(HeartBeatMessage)
+func _Master_GetFileLocation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ChunkLocationRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MasterServer).SayHelloAgain(ctx, in)
+		return srv.(MasterServer).GetFileLocation(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/master.Master/SayHelloAgain",
+		FullMethod: "/master.Master/GetFileLocation",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MasterServer).SayHelloAgain(ctx, req.(*HeartBeatMessage))
+		return srv.(MasterServer).GetFileLocation(ctx, req.(*ChunkLocationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Master_GetSystemChunkSize_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SystemChunkSizeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MasterServer).GetSystemChunkSize(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/master.Master/GetSystemChunkSize",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MasterServer).GetSystemChunkSize(ctx, req.(*SystemChunkSizeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Master_SendClientWriteRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClientWriteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MasterServer).SendClientWriteRequest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/master.Master/SendClientWriteRequest",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MasterServer).SendClientWriteRequest(ctx, req.(*ClientWriteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -132,12 +200,20 @@ var Master_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*MasterServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "SendHeartBeatMessage",
-			Handler:    _Master_SendHeartBeatMessage_Handler,
+			MethodName: "ReceiveHeartBeatMessage",
+			Handler:    _Master_ReceiveHeartBeatMessage_Handler,
 		},
 		{
-			MethodName: "SayHelloAgain",
-			Handler:    _Master_SayHelloAgain_Handler,
+			MethodName: "GetFileLocation",
+			Handler:    _Master_GetFileLocation_Handler,
+		},
+		{
+			MethodName: "GetSystemChunkSize",
+			Handler:    _Master_GetSystemChunkSize_Handler,
+		},
+		{
+			MethodName: "SendClientWriteRequest",
+			Handler:    _Master_SendClientWriteRequest_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

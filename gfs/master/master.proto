@@ -4,17 +4,44 @@ option go_package = "gfs/master";
 
 service Master {
   // Sends a heart beat message
-  rpc SendHeartBeatMessage (HeartBeatMessage) returns (HeartBeatMessageReply) {}
-  // Sends another greeting
-  rpc SayHelloAgain (HeartBeatMessage) returns (HeartBeatMessageReply) {}
+  rpc ReceiveHeartBeatMessage (ChunkServerID) returns (Ack) {}
+  // Retrieves the chunk handler of a chunk and the locations of its replicas
+  rpc GetFileLocation(ChunkLocationRequest) returns (ChunkLocationReply) {}
+  // Retrieve the fixed system chunksize
+  rpc GetSystemChunkSize(SystemChunkSizeRequest) returns (ChunkSize) {}
+  // ClientWriteRequest
+  rpc SendClientWriteRequest(ClientWriteRequest) returns (Ack) {} 
 }
 
 // The request message containing the user's name.
-message HeartBeatMessage {
-  string name = 1;
+message ChunkServerID {
+  int64 id = 1;
+}
+
+// The reply message containing the system's fixed chunk size.
+message ChunkSize {
+  int64 size = 1;
+}
+
+// The place holder message for a client write request.
+message ClientWriteRequest {}
+
+// The empty message for a client's inquiry on the system chunk size.
+message SystemChunkSizeRequest {}
+
+// The request message for a file's chunk size
+message ChunkLocationRequest {
+  string filepath = 1;
+  int32 chunkIdx = 2;
+}
+
+// The reply message for a file's chunk handler and its replica locations.
+message ChunkLocationReply {
+  int64 chunkHandler = 1;
+  repeated int64 chunkServerIds = 2;
 }
   
-// The response message containing the greetings
-message HeartBeatMessageReply {
+// The response message acknowledging a transaction.
+message Ack {
   string message = 1;
 }
