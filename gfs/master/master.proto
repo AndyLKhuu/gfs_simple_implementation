@@ -3,14 +3,14 @@ package master;
 option go_package = "gfs/master";
 
 service Master {
-  // Sends a heart beat message
-  rpc ReceiveHeartBeatMessage (ChunkServerID) returns (Ack) {}
+  // Sends a heart beat message to the client
+  rpc SendHeartBeatMessage (ChunkServerID) returns (Ack) {}
   // Retrieves the chunk handler of a chunk and the locations of its replicas
   rpc GetFileLocation(ChunkLocationRequest) returns (ChunkLocationReply) {}
   // Retrieve the fixed system chunksize
   rpc GetSystemChunkSize(SystemChunkSizeRequest) returns (ChunkSize) {}
   // ClientWriteRequest
-  rpc SendClientWriteRequest(ClientWriteRequest) returns (Ack) {} 
+  rpc ReceiveClientWriteRequest(ClientWriteRequest) returns (Ack) {} 
 }
 
 // The request message containing the user's name.

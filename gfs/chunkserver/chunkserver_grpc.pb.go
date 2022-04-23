@@ -22,10 +22,16 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ChunkServerClient interface {
-	// Sends a heart beat message
-	SendHeartBeatMessage(ctx context.Context, in *HeartBeatMessage, opts ...grpc.CallOption) (*HeartBeatMessageReply, error)
-	// Sends another greeting
-	SayHelloAgain(ctx context.Context, in *HeartBeatMessage, opts ...grpc.CallOption) (*HeartBeatMessageReply, error)
+	// Reads a range of bytes in a chunk.
+	Read(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (*ReadReply, error)
+	// Receive potential write data from clients.
+	ReceiveWriteData(ctx context.Context, in *WriteDataBundle, opts ...grpc.CallOption) (*Ack, error)
+	// Commits a mutation operation on primary.
+	PrimaryCommitMutate(ctx context.Context, in *ChunkHandler, opts ...grpc.CallOption) (*Ack, error)
+	// Commits a mutation operation on secondary.
+	SecondaryCommitMutate(ctx context.Context, in *ChunkHandler, opts ...grpc.CallOption) (*Ack, error)
+	// Creates a new chunk.
+	CreateNewChunk(ctx context.Context, in *ChunkHandler, opts ...grpc.CallOption) (*Ack, error)
 }
 
 type chunkServerClient struct {
@@ -36,18 +42,45 @@ func NewChunkServerClient(cc grpc.ClientConnInterface) ChunkServerClient {
 	return &chunkServerClient{cc}
 }
 
-func (c *chunkServerClient) SendHeartBeatMessage(ctx context.Context, in *HeartBeatMessage, opts ...grpc.CallOption) (*HeartBeatMessageReply, error) {
-	out := new(HeartBeatMessageReply)
-	err := c.cc.Invoke(ctx, "/master.ChunkServer/SendHeartBeatMessage", in, out, opts...)
+func (c *chunkServerClient) Read(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (*ReadReply, error) {
+	out := new(ReadReply)
+	err := c.cc.Invoke(ctx, "/chunkserver.ChunkServer/Read", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *chunkServerClient) SayHelloAgain(ctx context.Context, in *HeartBeatMessage, opts ...grpc.CallOption) (*HeartBeatMessageReply, error) {
-	out := new(HeartBeatMessageReply)
-	err := c.cc.Invoke(ctx, "/master.ChunkServer/SayHelloAgain", in, out, opts...)
+func (c *chunkServerClient) ReceiveWriteData(ctx context.Context, in *WriteDataBundle, opts ...grpc.CallOption) (*Ack, error) {
+	out := new(Ack)
+	err := c.cc.Invoke(ctx, "/chunkserver.ChunkServer/ReceiveWriteData", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chunkServerClient) PrimaryCommitMutate(ctx context.Context, in *ChunkHandler, opts ...grpc.CallOption) (*Ack, error) {
+	out := new(Ack)
+	err := c.cc.Invoke(ctx, "/chunkserver.ChunkServer/PrimaryCommitMutate", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chunkServerClient) SecondaryCommitMutate(ctx context.Context, in *ChunkHandler, opts ...grpc.CallOption) (*Ack, error) {
+	out := new(Ack)
+	err := c.cc.Invoke(ctx, "/chunkserver.ChunkServer/SecondaryCommitMutate", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chunkServerClient) CreateNewChunk(ctx context.Context, in *ChunkHandler, opts ...grpc.CallOption) (*Ack, error) {
+	out := new(Ack)
+	err := c.cc.Invoke(ctx, "/chunkserver.ChunkServer/CreateNewChunk", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -58,10 +91,16 @@ func (c *chunkServerClient) SayHelloAgain(ctx context.Context, in *HeartBeatMess
 // All implementations must embed UnimplementedChunkServerServer
 // for forward compatibility
 type ChunkServerServer interface {
-	// Sends a heart beat message
-	SendHeartBeatMessage(context.Context, *HeartBeatMessage) (*HeartBeatMessageReply, error)
-	// Sends another greeting
-	SayHelloAgain(context.Context, *HeartBeatMessage) (*HeartBeatMessageReply, error)
+	// Reads a range of bytes in a chunk.
+	Read(context.Context, *ReadRequest) (*ReadReply, error)
+	// Receive potential write data from clients.
+	ReceiveWriteData(context.Context, *WriteDataBundle) (*Ack, error)
+	// Commits a mutation operation on primary.
+	PrimaryCommitMutate(context.Context, *ChunkHandler) (*Ack, error)
+	// Commits a mutation operation on secondary.
+	SecondaryCommitMutate(context.Context, *ChunkHandler) (*Ack, error)
+	// Creates a new chunk.
+	CreateNewChunk(context.Context, *ChunkHandler) (*Ack, error)
 	mustEmbedUnimplementedChunkServerServer()
 }
 
@@ -69,11 +108,20 @@ type ChunkServerServer interface {
 type UnimplementedChunkServerServer struct {
 }
 
-func (UnimplementedChunkServerServer) SendHeartBeatMessage(context.Context, *HeartBeatMessage) (*HeartBeatMessageReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SendHeartBeatMessage not implemented")
+func (UnimplementedChunkServerServer) Read(context.Context, *ReadRequest) (*ReadReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Read not implemented")
 }
-func (UnimplementedChunkServerServer) SayHelloAgain(context.Context, *HeartBeatMessage) (*HeartBeatMessageReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SayHelloAgain not implemented")
+func (UnimplementedChunkServerServer) ReceiveWriteData(context.Context, *WriteDataBundle) (*Ack, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReceiveWriteData not implemented")
+}
+func (UnimplementedChunkServerServer) PrimaryCommitMutate(context.Context, *ChunkHandler) (*Ack, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PrimaryCommitMutate not implemented")
+}
+func (UnimplementedChunkServerServer) SecondaryCommitMutate(context.Context, *ChunkHandler) (*Ack, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SecondaryCommitMutate not implemented")
+}
+func (UnimplementedChunkServerServer) CreateNewChunk(context.Context, *ChunkHandler) (*Ack, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateNewChunk not implemented")
 }
 func (UnimplementedChunkServerServer) mustEmbedUnimplementedChunkServerServer() {}
 
@@ -88,38 +136,92 @@ func RegisterChunkServerServer(s grpc.ServiceRegistrar, srv ChunkServerServer) {
 	s.RegisterService(&ChunkServer_ServiceDesc, srv)
 }
 
-func _ChunkServer_SendHeartBeatMessage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(HeartBeatMessage)
+func _ChunkServer_Read_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReadRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ChunkServerServer).SendHeartBeatMessage(ctx, in)
+		return srv.(ChunkServerServer).Read(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/master.ChunkServer/SendHeartBeatMessage",
+		FullMethod: "/chunkserver.ChunkServer/Read",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChunkServerServer).SendHeartBeatMessage(ctx, req.(*HeartBeatMessage))
+		return srv.(ChunkServerServer).Read(ctx, req.(*ReadRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ChunkServer_SayHelloAgain_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(HeartBeatMessage)
+func _ChunkServer_ReceiveWriteData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WriteDataBundle)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ChunkServerServer).SayHelloAgain(ctx, in)
+		return srv.(ChunkServerServer).ReceiveWriteData(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/master.ChunkServer/SayHelloAgain",
+		FullMethod: "/chunkserver.ChunkServer/ReceiveWriteData",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChunkServerServer).SayHelloAgain(ctx, req.(*HeartBeatMessage))
+		return srv.(ChunkServerServer).ReceiveWriteData(ctx, req.(*WriteDataBundle))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChunkServer_PrimaryCommitMutate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ChunkHandler)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChunkServerServer).PrimaryCommitMutate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/chunkserver.ChunkServer/PrimaryCommitMutate",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChunkServerServer).PrimaryCommitMutate(ctx, req.(*ChunkHandler))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChunkServer_SecondaryCommitMutate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ChunkHandler)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChunkServerServer).SecondaryCommitMutate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/chunkserver.ChunkServer/SecondaryCommitMutate",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChunkServerServer).SecondaryCommitMutate(ctx, req.(*ChunkHandler))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChunkServer_CreateNewChunk_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ChunkHandler)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChunkServerServer).CreateNewChunk(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/chunkserver.ChunkServer/CreateNewChunk",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChunkServerServer).CreateNewChunk(ctx, req.(*ChunkHandler))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -128,16 +230,28 @@ func _ChunkServer_SayHelloAgain_Handler(srv interface{}, ctx context.Context, de
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ChunkServer_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "master.ChunkServer",
+	ServiceName: "chunkserver.ChunkServer",
 	HandlerType: (*ChunkServerServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "SendHeartBeatMessage",
-			Handler:    _ChunkServer_SendHeartBeatMessage_Handler,
+			MethodName: "Read",
+			Handler:    _ChunkServer_Read_Handler,
 		},
 		{
-			MethodName: "SayHelloAgain",
-			Handler:    _ChunkServer_SayHelloAgain_Handler,
+			MethodName: "ReceiveWriteData",
+			Handler:    _ChunkServer_ReceiveWriteData_Handler,
+		},
+		{
+			MethodName: "PrimaryCommitMutate",
+			Handler:    _ChunkServer_PrimaryCommitMutate_Handler,
+		},
+		{
+			MethodName: "SecondaryCommitMutate",
+			Handler:    _ChunkServer_SecondaryCommitMutate_Handler,
+		},
+		{
+			MethodName: "CreateNewChunk",
+			Handler:    _ChunkServer_CreateNewChunk_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
