@@ -1,6 +1,6 @@
 syntax = "proto3";
 package master;
-option go_package = "gfs/master";
+option go_package = "gfs/master/protos";
 
 service Master {
   // Sends a heart beat message to the client

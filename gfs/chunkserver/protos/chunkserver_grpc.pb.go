@@ -4,7 +4,7 @@
 // - protoc             v3.6.1
 // source: chunkserver.proto
 
-package chunkserver
+package protos
 
 import (
 	context "context"
