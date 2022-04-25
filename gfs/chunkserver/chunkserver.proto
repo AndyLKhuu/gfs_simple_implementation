@@ -1,0 +1,46 @@
+syntax = "proto3";
+package chunkserver;
+option go_package = "gfs/chunkserver";
+
+service ChunkServer {
+  // Reads a range of bytes in a chunk.
+  rpc Read(ReadRequest) returns (ReadReply) {}
+  // Receive potential write data from clients.
+  rpc ReceiveWriteData(WriteDataBundle) returns (Ack) {}
+  // Commits a mutation operation on primary.
+  rpc PrimaryCommitMutate(ChunkHandler) returns (Ack) {}
+  // Commits a mutation operation on secondary.
+  rpc SecondaryCommitMutate(ChunkHandler) returns (Ack) {}
+  // Creates a new chunk.
+  rpc CreateNewChunk(ChunkHandler) returns (Ack) {}
+}
+
+// The reply message containing the data from a file read.
+message ReadReply {
+  string data = 1;
+}
+
+// The request message containing the arguments to a read request.
+message ReadRequest {
+  int64 ch = 1;
+  int32 l = 2;
+  int32 r = 3;
+}
+
+// A message containing a chunk handler
+message ChunkHandler {
+  int64 ch = 1;
+}
+
+// A reply message containing an acknowledgement
+message Ack {
+  string msg = 1;
+}
+
+// A request message containing potential mutation data from clients.
+message WriteDataBundle {
+  string data = 1;
+  int64 size = 2;
+  int64 ch = 3;
+}
+
