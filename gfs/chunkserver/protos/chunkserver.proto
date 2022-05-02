@@ -1,6 +1,6 @@
 syntax = "proto3";
 package chunkserver;
-option go_package = "gfs/chunkserver";
+option go_package = "gfs/chunkserver/protos";
 
 service ChunkServer {
   // Reads a range of bytes in a chunk.
