@@ -8,6 +8,7 @@ require (
 )
 
 require (
+	github.com/akamensky/argparse v1.3.1 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	golang.org/x/net v0.0.0-20201021035429-f5854403a974 // indirect
 	golang.org/x/sys v0.0.0-20210119212857-b64e53b001e4 // indirect
