@@ -44,7 +44,7 @@ func NewChunkServerClient(cc grpc.ClientConnInterface) ChunkServerClient {
 
 func (c *chunkServerClient) Read(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (*ReadReply, error) {
 	out := new(ReadReply)
-	err := c.cc.Invoke(ctx, "/chunkserver.ChunkServer/Read", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/protos.ChunkServer/Read", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +53,7 @@ func (c *chunkServerClient) Read(ctx context.Context, in *ReadRequest, opts ...g
 
 func (c *chunkServerClient) ReceiveWriteData(ctx context.Context, in *WriteDataBundle, opts ...grpc.CallOption) (*Ack, error) {
 	out := new(Ack)
-	err := c.cc.Invoke(ctx, "/chunkserver.ChunkServer/ReceiveWriteData", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/protos.ChunkServer/ReceiveWriteData", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func (c *chunkServerClient) ReceiveWriteData(ctx context.Context, in *WriteDataB
 
 func (c *chunkServerClient) PrimaryCommitMutate(ctx context.Context, in *ChunkHandler, opts ...grpc.CallOption) (*Ack, error) {
 	out := new(Ack)
-	err := c.cc.Invoke(ctx, "/chunkserver.ChunkServer/PrimaryCommitMutate", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/protos.ChunkServer/PrimaryCommitMutate", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func (c *chunkServerClient) PrimaryCommitMutate(ctx context.Context, in *ChunkHa
 
 func (c *chunkServerClient) SecondaryCommitMutate(ctx context.Context, in *ChunkHandler, opts ...grpc.CallOption) (*Ack, error) {
 	out := new(Ack)
-	err := c.cc.Invoke(ctx, "/chunkserver.ChunkServer/SecondaryCommitMutate", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/protos.ChunkServer/SecondaryCommitMutate", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func (c *chunkServerClient) SecondaryCommitMutate(ctx context.Context, in *Chunk
 
 func (c *chunkServerClient) CreateNewChunk(ctx context.Context, in *ChunkHandler, opts ...grpc.CallOption) (*Ack, error) {
 	out := new(Ack)
-	err := c.cc.Invoke(ctx, "/chunkserver.ChunkServer/CreateNewChunk", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/protos.ChunkServer/CreateNewChunk", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +146,7 @@ func _ChunkServer_Read_Handler(srv interface{}, ctx context.Context, dec func(in
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/chunkserver.ChunkServer/Read",
+		FullMethod: "/protos.ChunkServer/Read",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChunkServerServer).Read(ctx, req.(*ReadRequest))
@@ -164,7 +164,7 @@ func _ChunkServer_ReceiveWriteData_Handler(srv interface{}, ctx context.Context,
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/chunkserver.ChunkServer/ReceiveWriteData",
+		FullMethod: "/protos.ChunkServer/ReceiveWriteData",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChunkServerServer).ReceiveWriteData(ctx, req.(*WriteDataBundle))
@@ -182,7 +182,7 @@ func _ChunkServer_PrimaryCommitMutate_Handler(srv interface{}, ctx context.Conte
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/chunkserver.ChunkServer/PrimaryCommitMutate",
+		FullMethod: "/protos.ChunkServer/PrimaryCommitMutate",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChunkServerServer).PrimaryCommitMutate(ctx, req.(*ChunkHandler))
@@ -200,7 +200,7 @@ func _ChunkServer_SecondaryCommitMutate_Handler(srv interface{}, ctx context.Con
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/chunkserver.ChunkServer/SecondaryCommitMutate",
+		FullMethod: "/protos.ChunkServer/SecondaryCommitMutate",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChunkServerServer).SecondaryCommitMutate(ctx, req.(*ChunkHandler))
@@ -218,7 +218,7 @@ func _ChunkServer_CreateNewChunk_Handler(srv interface{}, ctx context.Context, d
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/chunkserver.ChunkServer/CreateNewChunk",
+		FullMethod: "/protos.ChunkServer/CreateNewChunk",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChunkServerServer).CreateNewChunk(ctx, req.(*ChunkHandler))
@@ -230,7 +230,7 @@ func _ChunkServer_CreateNewChunk_Handler(srv interface{}, ctx context.Context, d
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ChunkServer_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "chunkserver.ChunkServer",
+	ServiceName: "protos.ChunkServer",
 	HandlerType: (*ChunkServerServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

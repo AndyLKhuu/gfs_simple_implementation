@@ -1,14 +1,15 @@
 package main
 
 import (
-	// "context"
+
 	"fmt"
+	// "context"
+	"gfs/chunkserver"
 	"gfs/master"
 	// "gfs/master/protos"
 	"gfs/client"
-	// "log"
+	"log"
 	"time"
-
 	// "google.golang.org/grpc"
 )
 
@@ -20,8 +21,13 @@ import (
 // 	}
 // 	defer conn.Close()
 
-// 	c := protos.NewMasterClient(conn)
+var masterServerPort = ":9000"
+var chunkServerPortBase = 10000
+var NUM_CHUNK_SERVERS = 3
 
+
+
+// 	c := protos.NewMasterClient(conn)
 // 	response, err := c.GetSystemChunkSize(context.Background(), &protos.SystemChunkSizeRequest{})
 // 	if err != nil {
 // 		log.Fatalf("Error when calling GetSystemChunkSize: %s", err)
@@ -31,21 +37,29 @@ import (
 // }
 
 func main() {
-	/* Start Master Node*/
-	fmt.Println("Starting up Master Server")
+	// Start up Master Server
+	go master.InitMasterServer(masterServerPort, NUM_CHUNK_SERVERS, chunkServerPortBase)
 
-	go master.InitMasterServer()
+	log.Printf("Master server initialization complete.");
 
-	// TO:DO Add more complex synchronization mechanism to check for completion of Master Server Initialization
+
+	// Start up Chunkservers
+	for i := 0; i < NUM_CHUNK_SERVERS; i++ {
+		go chunkserver.InitChunkServer(chunkServerPortBase + i)
+	}
+
 	time.Sleep(2 * time.Second) //Arbitrary Number
+
+	log.Printf("Chunk server initialization complete.");
+	
 
 	// for i := 1; i < 5; i++ {
 	c := client.InitClient()
+	// todo: close client connections 
 	// }
 	fmt.Println(c);
 
 	c.Create("test");
 
-
-
+	select {}
 }
