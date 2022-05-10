@@ -1,5 +1,5 @@
 syntax = "proto3";
-package chunkserver;
+package protos;
 option go_package = "gfs/chunkserver/protos";
 
 service ChunkServer {

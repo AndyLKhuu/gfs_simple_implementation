@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	cs "gfs/chunkserver/protos"
 	"gfs/master/protos"
 	"log"
 	"os"
@@ -10,6 +11,7 @@ import (
 
 type MasterServer struct {
 	protos.UnimplementedMasterServer
+	cs_clients []cs.ChunkServerClient
 }
 
 func (s *MasterServer) SendHeartBeatMessage(ctx context.Context, cid *protos.ChunkServerID) (*protos.Ack, error) {
@@ -28,7 +30,7 @@ func (s *MasterServer) ReceiveClientWriteRequest(ctx context.Context, clientWrit
 	return &protos.Ack{}, nil
 }
 
-func CreateFile(filepath string) error {
+func createFile(filepath string) error {
 	_, e := os.Create(filepath)
 	if e != nil {
 		log.Fatal("Couldn't Create File \n")

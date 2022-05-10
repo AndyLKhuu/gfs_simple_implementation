@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"gfs/chunkserver"
 	"gfs/master"
 	"gfs/master/protos"
 	"log"
@@ -10,6 +10,10 @@ import (
 
 	"google.golang.org/grpc"
 )
+
+var masterServerPort = ":9000"
+var chunkServerPortBase = 10000
+var NUM_CHUNK_SERVERS = 1
 
 func initClientConnection() {
 	var conn *grpc.ClientConn
@@ -30,16 +34,15 @@ func initClientConnection() {
 }
 
 func main() {
-	/* Start Master Node*/
-	fmt.Println("Starting up Master Server")
+	// Start up Master Server
+	master.InitMasterServer(masterServerPort, NUM_CHUNK_SERVERS, chunkServerPortBase)
+	// Start up Chunkservers
+	for i := 0; i < NUM_CHUNK_SERVERS; i++ {
+		go chunkserver.InitChunkServer(chunkServerPortBase + i)
+	}
 
-	go master.InitMasterServer()
-
-	// TO:DO Add more complex synchronization mechanism to check for completion of Master Server Initialization
 	time.Sleep(2 * time.Second) //Arbitrary Number
 
-	// for i := 1; i < 5; i++ {
 	initClientConnection()
-	// }
 
 }
