@@ -16,7 +16,7 @@ import (
 var chunkServerTempDirectoryPath = "../temp_dfs_storage/"
 
 func InitChunkServer(csAddr int) {
-	fmt.Println("Starting up chunkserver " + strconv.Itoa(csAddr) + ".")
+	fmt.Println("starting up chunkserver " + strconv.Itoa(csAddr) + ".")
 	if err := os.MkdirAll(chunkServerTempDirectoryPath+strconv.Itoa(csAddr), os.ModePerm); err != nil {
 		log.Fatal(err)
 	}

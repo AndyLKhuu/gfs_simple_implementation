@@ -16,7 +16,7 @@ import (
 )
 
 func InitMasterServer(mAddr string, numChunkServers int, chunkServerPortBase int) {
-	fmt.Println("Starting up master server.")
+	fmt.Println("starting up master server.")
 	lis, err := net.Listen("tcp", mAddr)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
@@ -28,6 +28,7 @@ func InitMasterServer(mAddr string, numChunkServers int, chunkServerPortBase int
 
 	protos.RegisterMasterServer(grpcServer, &s)
 
+	// Serve Master Routine
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
 			// TO:DO Propagate this error out to fail server
@@ -35,28 +36,26 @@ func InitMasterServer(mAddr string, numChunkServers int, chunkServerPortBase int
 		}
 	}()
 
+	// Start and store connections to chunkservers
 	go func() {
-		// TO:DO Implement some type of repolling mechanism until chunkservers are up. Add a timeout to avoid long waits
-		time.Sleep(2 * time.Second) //Arbitrary Number
-		// Start and store connections to chunkservers
 		for i := 0; i < int(numChunkServers); i++ {
 			cs_addr := ":" + strconv.Itoa(chunkServerPortBase+i)
-			fmt.Println("Connecting to chunkserver " + cs_addr)
+			log.Printf("connecting to chunkserver %s", cs_addr)
 			var conn *grpc.ClientConn
-			defer conn.Close()
-			conn, err := grpc.Dial(cs_addr, grpc.WithInsecure())
+
+			conn, err := grpc.Dial(cs_addr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure())
 			if err != nil {
-				log.Fatalf("did not connect: %s", err)
+				log.Printf("did not connect to chunkserver %s", cs_addr)
 			}
-			fmt.Println("Successfully connected to chunkserver " + cs_addr)
+			log.Printf("successfully connected to chunkserver %s", cs_addr)
 
 			c := cs.NewChunkServerClient(conn)
 
 			response, err := c.Read(context.Background(), &cs.ReadRequest{})
 			if err != nil {
-				log.Fatalf("Error when calling Read: %s", err)
+				log.Fatalf("error when calling Read: %s", err)
 			}
-			log.Printf("Read reply is : %s", response.Data)
+			log.Printf("read reply is : %s", response.Data)
 		}
 	}()
 }

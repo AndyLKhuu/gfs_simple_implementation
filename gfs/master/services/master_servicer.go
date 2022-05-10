@@ -33,7 +33,7 @@ func (s *MasterServer) ReceiveClientWriteRequest(ctx context.Context, clientWrit
 func createFile(filepath string) error {
 	_, e := os.Create(filepath)
 	if e != nil {
-		log.Fatal("Couldn't Create File \n")
+		log.Fatal("couldn't Create File \n")
 	}
 	return e
 }
