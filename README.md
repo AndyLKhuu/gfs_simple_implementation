@@ -12,3 +12,4 @@
 - Figure out how many chunkservers we want to spin up and the timeouts we need to do so.
 - Master -> Chunkserver connections are currently blockign and in increasing order. We want these to be asynchronous.
 - Clean up communication set up calls, maybe it's too many nested goroutines
+- Add a flag which supresses log calls (different levels of logs perhaps?)
