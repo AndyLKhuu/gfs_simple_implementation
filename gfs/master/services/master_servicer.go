@@ -11,7 +11,7 @@ import (
 
 type MasterServer struct {
 	protos.UnimplementedMasterServer
-	cs_clients []cs.ChunkServerClient
+	Cs_clients map[string]cs.ChunkServerClient
 }
 
 func (s *MasterServer) SendHeartBeatMessage(ctx context.Context, cid *protos.ChunkServerID) (*protos.Ack, error) {

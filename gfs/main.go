@@ -12,7 +12,7 @@ import (
 
 var masterServerPort = ":9000"
 var chunkServerPortBase = 10000
-var NUM_CHUNK_SERVERS = 5
+var NUM_CHUNK_SERVERS = 3
 
 func initClientConnection() {
 	var conn *grpc.ClientConn
@@ -33,7 +33,7 @@ func initClientConnection() {
 
 func main() {
 	// Start up Master Server
-	master.InitMasterServer(masterServerPort, NUM_CHUNK_SERVERS, chunkServerPortBase)
+	go master.InitMasterServer(masterServerPort, NUM_CHUNK_SERVERS, chunkServerPortBase)
 
 	// Start up Chunkservers
 	for i := 0; i < NUM_CHUNK_SERVERS; i++ {
