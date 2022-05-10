@@ -53,16 +53,11 @@ func InitMasterServer(mAddr string, numChunkServers int, chunkServerPortBase int
 			conn, err := grpc.Dial(cs_addr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure())
 			if err != nil {
 				log.Printf("did not connect to chunkserver %s", cs_addr)
+				continue
 			}
 			log.Printf("successfully connected to chunkserver %s", cs_addr)
 
 			c := cs.NewChunkServerClient(conn)
-
-			// response, err := c.Read(context.Background(), &cs.ReadRequest{})
-			// if err != nil {
-			// 	log.Fatalf("error when calling Read: %s", err)
-			// }
-			// log.Printf("read reply is : %s", response.Data)
 
 			chunkserver_chan <- ChunkServerConfig{cs_addr: cs_addr, cs_client: c}
 		}
