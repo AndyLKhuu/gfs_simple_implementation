@@ -11,37 +11,17 @@ import (
 	"log"
 	"time"
 	// "google.golang.org/grpc"
+	// "reflect"
 )
-
-// func initClientConnection() {
-// 	var conn *grpc.ClientConn
-// 	conn, err := grpc.Dial(":9000", grpc.WithInsecure())
-// 	if err != nil {
-// 		log.Fatalf("did not connect: %s", err)
-// 	}
-// 	defer conn.Close()
 
 var masterServerPort = ":9000"
 var chunkServerPortBase = 10000
 var NUM_CHUNK_SERVERS = 3
-
-
-
-// 	c := protos.NewMasterClient(conn)
-// 	response, err := c.GetSystemChunkSize(context.Background(), &protos.SystemChunkSizeRequest{})
-// 	if err != nil {
-// 		log.Fatalf("Error when calling GetSystemChunkSize: %s", err)
-// 	}
-
-// 	log.Printf("The ChunkSize of the system is : %d", response.Size)
-// }
+var NUM_CLIENTS = 1
 
 func main() {
 	// Start up Master Server
 	go master.InitMasterServer(masterServerPort, NUM_CHUNK_SERVERS, chunkServerPortBase)
-
-	log.Printf("Master server initialization complete.");
-
 
 	// Start up Chunkservers
 	for i := 0; i < NUM_CHUNK_SERVERS; i++ {
@@ -50,16 +30,21 @@ func main() {
 
 	time.Sleep(2 * time.Second) //Arbitrary Number
 
-	log.Printf("Chunk server initialization complete.");
-	
+	fmt.Println("-------");
 
-	// for i := 1; i < 5; i++ {
-	c := client.InitClient()
-	// todo: close client connections 
-	// }
-	fmt.Println(c);
-
-	c.Create("test");
+	// Start up Clients
+	for i := 0; i < NUM_CLIENTS; i++ {
+		go func () {
+			c := client.InitClient(masterServerPort) // Idea: go func() this so we can run clients in parallel. In those funcs, we can run different workloads 
+			defer c.MasterConn.Close();
+			log.Println("Initialized a client");
+			c.Create("test.txt");
+			c.Read("test.txt", 0, nil);
+			var str = "hello";
+			c.Write("test.txt", 0, []byte(str));
+			c.Delete("test.txt");
+		}()
+	}
 
 	select {}
 }

@@ -1,9 +1,8 @@
 package client
 
-
 import (
 	"context"
-	"fmt"
+	// "fmt"
 	"gfs/master/protos"
 	"log"
 	// "time"
@@ -13,27 +12,24 @@ import (
 )
 
 type Client struct {
-	masterConn *grpc.ClientConn // used to later close connection
-	masterClient *protos.MasterClient // used to invoke RPCs
+	MasterConn *grpc.ClientConn // used to later close connection
+	MasterClient *protos.MasterClient // used to invoke RPCs
 }
 
-
 // Initializes a new Client. Pass in master's identifier to link Client to master
-func InitClient() *Client {
+func InitClient(mAddr string) *Client {
 
 	var conn *grpc.ClientConn
-	conn, err := grpc.Dial(":9000", grpc.WithInsecure())
+	conn, err := grpc.Dial(mAddr, grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("did not connect: %s", err)
 	}
-	// defer conn.Close() // TODO: remove
 
 	c := protos.NewMasterClient(conn)
 
-
 	client := new(Client);
-	client.masterConn = conn;
-	client.masterClient = &c;
+	client.MasterConn = conn;
+	client.MasterClient = &c;
 
 	return client;
 }
@@ -42,8 +38,8 @@ func InitClient() *Client {
 /* 	methods to implement:
 	- create
 	- delete
-	- open
-	- close
+	- open*
+	- close*
 	- read
 	- write
 	- snapshot*
@@ -51,83 +47,70 @@ func InitClient() *Client {
  */
 
 
-func (client *Client) Create(filename string) int {
-	// invoke  master's 'Create' rpc
+func (client *Client) Create(filepath string) int {
+	masterClient := *(client.MasterClient);
+	_, err := masterClient.ReceiveClientCreateRequest(context.Background(), &protos.ClientCreateRequest{Filepath: filepath})
+	if err != nil {
+		log.Println("Error creating file.");
+		return -1;
+	} 
+	log.Printf("Succesfully created file: %s", filepath);
+	return 0;
+}
 
-	/* 
-	1) Invoke master's create-RPC 
-		- master will handle updating metadata and allocating chunk
-	*/
+func (client *Client) Delete(filepath string) int {
+	masterClient := *(client.MasterClient);
+	_, err := masterClient.ReceiveClientDeleteRequest(context.Background(), &protos.ClientDeleteRequest{Filepath: filepath})
+	if err != nil {
+		log.Println("Error deleting file.");
+		return -1;
+	} 
+	log.Printf("Succesfully deleted file: %s", filepath);
+	return 0;
+}
 
-
-	fmt.Println("TODO: invoke Master's RPC to create new file with name 'filename'.")
+func (client *Client) Open(filepath string) int {
 	return -1;
 }
 
-
-func (client *Client) Delete(filename string) int {
-	// invoke  master's 'Delete' rpc
-
-	/* 
-	Notes:
-	1) Invoke master's create-RPC 
-		- master will handle updating metadata and allocating chunk
-	*/
-
-
-	// masterClient := *(client.masterClient);
-	fmt.Println("TODO: invoke Master's RPC to delete filew with name 'filename'.")
-	return -1;
-}
-
-
-func (client *Client) Open(filename string) int {
-	// What does this do exactly?? 
-	return -1;
-}
-
-
-func (client *Client) Read(filename string, offset int, data []byte) (bytes_read int, status int) {
-	// invoke  master's 'Read' rpc
-
-	/* 
-	Notes:
-
-	1) Retrieve chunk size with Master RPC
-	1) Calculate chunkIndex
-	2) masterReadRPC(filename, chunkIndex) => (chunkHandle, chunkLocation)
-		- how to handle file being distributed across multiple chunk servers? 
-	3) chunkServerRPC(chunkHandle, byteRange) => data 
-	[done.]
-	*/
-
-	masterClient := *(client.masterClient);
-	response, err := masterClient.GetSystemChunkSize(context.Background(), &protos.SystemChunkSizeRequest{})
+func (client *Client) Read(filepath string, offset int64, data []byte) int {
+	masterClient := *(client.MasterClient);
+	getSystemChunkSizeReply, err := masterClient.GetSystemChunkSize(context.Background(), &protos.SystemChunkSizeRequest{})
 	if err != nil {
 		log.Fatalf("Error when calling GetSystemChunkSize: %s", err)
+		return -1; 
 	}
 
-	fmt.Println(response, err);
+	chunkSize := getSystemChunkSizeReply.Size;
+ 	chunkIdx := int32(offset/chunkSize);
 
+	getFileLocationReply, err := masterClient.GetFileLocation(context.Background(), &protos.ChunkLocationRequest{Filepath: filepath, ChunkIdx: chunkIdx})
+	log.Println(getFileLocationReply);
 
-	return 0, -1;
-
+	chunkLocation := getFileLocationReply.ChunkServerIds
+	chunkHandle := getFileLocationReply.ChunkHandler
+	log.Printf("Obtained (chunkLocation, chunkHandle): (%d, %d)", chunkLocation, chunkHandle)
+	log.Printf("TODO: build and invoke chunkserverReadRPC(chunkHandle, byteRange) => chunkData")
+	return 0;
 }
 
+func (client *Client) Write(filepath string, offset int64, data []byte) int {
+	masterClient := *(client.MasterClient);
+	getSystemChunkSizeReply, err := masterClient.GetSystemChunkSize(context.Background(), &protos.SystemChunkSizeRequest{})
+	if err != nil {
+		log.Fatalf("Error when calling GetSystemChunkSize: %s", err)
+		return -1
+	}
 
-func (client *Client) Write(filename string, offset int, data []byte) (bytes_written int, status int) {
-	// invoke  master's 'Write' rpc
+	chunkSize := getSystemChunkSizeReply.Size;
+ 	chunkIdx := int32(offset/chunkSize);
 
-	/* 
-	Notes:	
-	1) Calculate chunkIndex
-	2) masterWriteRPC(filename, chunkIndex) => (chunkHandle, chunkLocation, data)
-	3) chunkServerRPC(chunkHandle, byteRange) => status? 
-	[done.]
-	*/
+	getFileLocationReply, err := masterClient.GetFileLocation(context.Background(), &protos.ChunkLocationRequest{Filepath: filepath, ChunkIdx: chunkIdx})
+	log.Println(getFileLocationReply);
 
-	// masterClient := *(client.masterClient);
-
-	return 0, -1;
-
+	chunkLocation := getFileLocationReply.ChunkServerIds
+	chunkHandle := getFileLocationReply.ChunkHandler
+	log.Printf("Obtained (chunkLocation, chunkHandle): (%d, %d)", chunkLocation, chunkHandle)
+	log.Printf("TODO: build and invoke chunkserverWriteRPC(chunkHandle, byteRange) => chunkData")
+	return 0;
 }
