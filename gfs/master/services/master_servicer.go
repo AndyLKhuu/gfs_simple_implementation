@@ -5,13 +5,13 @@ import (
 	"fmt"
 	cs "gfs/chunkserver/protos"
 	"gfs/master/protos"
-	"log"
 	"os"
 )
 
 type MasterServer struct {
 	protos.UnimplementedMasterServer
-	Cs_clients map[string]cs.ChunkServerClient
+	ChunkServerClients map[string]cs.ChunkServerClient
+	Files              map[string][]int
 }
 
 func (s *MasterServer) SendHeartBeatMessage(ctx context.Context, cid *protos.ChunkServerID) (*protos.Ack, error) {
@@ -30,15 +30,25 @@ func (s *MasterServer) ReceiveClientWriteRequest(ctx context.Context, clientWrit
 	return &protos.Ack{}, nil
 }
 
-func createFile(filepath string) error {
-	_, e := os.Create(filepath)
+func (s *MasterServer) CreateFile(ctx context.Context, createReq *protos.FileCreateRequest) (*protos.Ack, error) {
+	path := createReq.Path
+	repFactor := createReq.RepFactor
+	// Create File
+	_, e := os.Create(path)
 	if e != nil {
-		log.Fatal("couldn't Create File \n")
+		return &protos.Ack{Message: fmt.Sprintf("failed to create file at path %s", path)}, nil
 	}
-	return e
-}
 
-func DummyFunction() {
-	fmt.Println("hi")
-	return
+	// Replicate empty chunks
+	numChunkServers := len(s.ChunkServerClients)
+	if repFactor > numChunkServers || repFactor < 1 {
+		return &protos.Ack{Message: "Replication Factor is Invalid"}, nil
+	}
+
+	// Choose first REPFACTOR serers
+	for k, v := range s.ChunkServerClients {
+		v.CreateNewChunk(context.Background(), cs.ChunkHandler{})
+	}
+
+	return &protos.Ack{Message: fmt.Sprintf("successfuly created file at path %s", path)}, nil
 }

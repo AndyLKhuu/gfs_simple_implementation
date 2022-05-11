@@ -40,9 +40,5 @@ func main() {
 		go chunkserver.InitChunkServer(chunkServerPortBase + i)
 	}
 
-	// time.Sleep(2 * time.Second) //Arbitrary Number
-
-	// initClientConnection()
-
 	select {}
 }

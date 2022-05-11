@@ -32,7 +32,10 @@ func InitChunkServer(csAddr int) {
 
 	protos.RegisterChunkServerServer(grpcServer, &s)
 
-	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %s", err)
-	}
+	// Start Chunkserver
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatalf("failed to serve: %s", err)
+		}
+	}()
 }

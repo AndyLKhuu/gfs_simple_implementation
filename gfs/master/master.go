@@ -27,7 +27,7 @@ func InitMasterServer(mAddr string, numChunkServers int, chunkServerPortBase int
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	s := &services.MasterServer{Cs_clients: make(map[string]cs.ChunkServerClient)}
+	s := &services.MasterServer{ChunkServerClients: make(map[string]cs.ChunkServerClient), Files: make(map[string][]int)}
 
 	grpcServer := grpc.NewServer()
 
@@ -39,7 +39,7 @@ func InitMasterServer(mAddr string, numChunkServers int, chunkServerPortBase int
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
 			// TO:DO Propagate this error out to fail server
-			log.Fatalf("failed to serve: %s", err)
+			log.Fatalf("failed to serve: %s.", err)
 		}
 	}()
 
@@ -47,15 +47,15 @@ func InitMasterServer(mAddr string, numChunkServers int, chunkServerPortBase int
 	go func() {
 		for i := 0; i < int(numChunkServers); i++ {
 			cs_addr := ":" + strconv.Itoa(chunkServerPortBase+i)
-			log.Printf("connecting to chunkserver %s", cs_addr)
+			log.Printf("connecting to chunkserver %s.", cs_addr)
 			var conn *grpc.ClientConn
 
 			conn, err := grpc.Dial(cs_addr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure())
 			if err != nil {
-				log.Printf("did not connect to chunkserver %s", cs_addr)
+				log.Printf("did not connect to chunkserver %s.", cs_addr)
 				continue
 			}
-			log.Printf("successfully connected to chunkserver %s", cs_addr)
+			log.Printf("successfully connected to chunkserver %s.", cs_addr)
 
 			c := cs.NewChunkServerClient(conn)
 
@@ -66,9 +66,9 @@ func InitMasterServer(mAddr string, numChunkServers int, chunkServerPortBase int
 	// Store connections to chunkservers
 	for i := 0; i < int(numChunkServers); i++ {
 		config := <-chunkserver_chan
-		s.Cs_clients[config.cs_addr] = config.cs_client
+		s.ChunkServerClients[config.cs_addr] = config.cs_client
 		log.Printf("storing chunkserver client at address %s", config.cs_addr)
-		response, err := s.Cs_clients[config.cs_addr].Read(context.Background(), &cs.ReadRequest{})
+		response, err := s.ChunkServerClients[config.cs_addr].Read(context.Background(), &cs.ReadRequest{})
 		if err != nil {
 			log.Fatalf("error when calling Read: %s", err)
 		}

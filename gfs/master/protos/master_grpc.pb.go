@@ -30,6 +30,8 @@ type MasterClient interface {
 	GetSystemChunkSize(ctx context.Context, in *SystemChunkSizeRequest, opts ...grpc.CallOption) (*ChunkSize, error)
 	// ClientWriteRequest
 	ReceiveClientWriteRequest(ctx context.Context, in *ClientWriteRequest, opts ...grpc.CallOption) (*Ack, error)
+	// CreateFile
+	CreateFile(ctx context.Context, in *FileCreateRequest, opts ...grpc.CallOption) (*Ack, error)
 }
 
 type masterClient struct {
@@ -76,6 +78,15 @@ func (c *masterClient) ReceiveClientWriteRequest(ctx context.Context, in *Client
 	return out, nil
 }
 
+func (c *masterClient) CreateFile(ctx context.Context, in *FileCreateRequest, opts ...grpc.CallOption) (*Ack, error) {
+	out := new(Ack)
+	err := c.cc.Invoke(ctx, "/master.Master/CreateFile", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MasterServer is the server API for Master service.
 // All implementations must embed UnimplementedMasterServer
 // for forward compatibility
@@ -88,6 +99,8 @@ type MasterServer interface {
 	GetSystemChunkSize(context.Context, *SystemChunkSizeRequest) (*ChunkSize, error)
 	// ClientWriteRequest
 	ReceiveClientWriteRequest(context.Context, *ClientWriteRequest) (*Ack, error)
+	// CreateFile
+	CreateFile(context.Context, *FileCreateRequest) (*Ack, error)
 	mustEmbedUnimplementedMasterServer()
 }
 
@@ -106,6 +119,9 @@ func (UnimplementedMasterServer) GetSystemChunkSize(context.Context, *SystemChun
 }
 func (UnimplementedMasterServer) ReceiveClientWriteRequest(context.Context, *ClientWriteRequest) (*Ack, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReceiveClientWriteRequest not implemented")
+}
+func (UnimplementedMasterServer) CreateFile(context.Context, *FileCreateRequest) (*Ack, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateFile not implemented")
 }
 func (UnimplementedMasterServer) mustEmbedUnimplementedMasterServer() {}
 
@@ -192,6 +208,24 @@ func _Master_ReceiveClientWriteRequest_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Master_CreateFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FileCreateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MasterServer).CreateFile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/master.Master/CreateFile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MasterServer).CreateFile(ctx, req.(*FileCreateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Master_ServiceDesc is the grpc.ServiceDesc for Master service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -214,6 +248,10 @@ var Master_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReceiveClientWriteRequest",
 			Handler:    _Master_ReceiveClientWriteRequest_Handler,
+		},
+		{
+			MethodName: "CreateFile",
+			Handler:    _Master_CreateFile_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

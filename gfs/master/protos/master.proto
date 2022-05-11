@@ -11,6 +11,13 @@ service Master {
   rpc GetSystemChunkSize(SystemChunkSizeRequest) returns (ChunkSize) {}
   // ClientWriteRequest
   rpc ReceiveClientWriteRequest(ClientWriteRequest) returns (Ack) {} 
+  // CreateFile 
+  rpc CreateFile(FileCreateRequest) returns (Ack) {}
+}
+
+message FileCreateRequest {
+  string path = 1;
+  int64 repFactor = 2;
 }
 
 // The request message containing the user's name.
