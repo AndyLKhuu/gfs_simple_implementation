@@ -5,13 +5,16 @@ import (
 	"fmt"
 	cs "gfs/chunkserver/protos"
 	"gfs/master/protos"
+	"log"
+	"math/rand"
 	"os"
 )
 
 type MasterServer struct {
 	protos.UnimplementedMasterServer
 	ChunkServerClients map[string]cs.ChunkServerClient
-	Files              map[string][]int
+	Files              map[string][]uint64 // Files to ChunkHandles
+	Chunks             map[uint64][]string // ChunkHandles to Replica Locations
 }
 
 func (s *MasterServer) SendHeartBeatMessage(ctx context.Context, cid *protos.ChunkServerID) (*protos.Ack, error) {
@@ -33,22 +36,39 @@ func (s *MasterServer) ReceiveClientWriteRequest(ctx context.Context, clientWrit
 func (s *MasterServer) CreateFile(ctx context.Context, createReq *protos.FileCreateRequest) (*protos.Ack, error) {
 	path := createReq.Path
 	repFactor := createReq.RepFactor
+
 	// Create File
 	_, e := os.Create(path)
 	if e != nil {
-		return &protos.Ack{Message: fmt.Sprintf("failed to create file at path %s", path)}, nil
+		return &protos.Ack{Message: fmt.Sprintf("failed to create file at path %s", path)}, e
 	}
+
+	// Generate random chunk handle
+	// TO:DO Ensure that chunkhandles are unique
+	ch := rand.Uint64()
+	chunks := append(s.Files[path], ch)
 
 	// Replicate empty chunks
 	numChunkServers := len(s.ChunkServerClients)
-	if repFactor > numChunkServers || repFactor < 1 {
+	// TO:DO Have better replication factor check (> n/2?)
+	if int(repFactor) > numChunkServers || repFactor < 1 {
+		// TO:DO Create error wrapper for rep factor error
 		return &protos.Ack{Message: "Replication Factor is Invalid"}, nil
 	}
 
-	// Choose first REPFACTOR serers
+	// Choose REPFACTOR servers
+	// TO:DO Choose replication servers to maximize throughoupt and ensure load balancing
 	for k, v := range s.ChunkServerClients {
-		v.CreateNewChunk(context.Background(), cs.ChunkHandler{})
+		res, err := v.CreateNewChunk(context.Background(), &cs.ChunkHandle{Ch: ch})
+		if err != nil {
+			s.Chunks[ch] = []string{}
+			return &protos.Ack{Message: fmt.Sprintf("failed to create file at path %s", path)}, err
+		}
+		log.Printf(res.Msg)
+
+		s.Chunks[ch] = append(s.Chunks[ch], k)
 	}
 
+	s.Files[path] = chunks
 	return &protos.Ack{Message: fmt.Sprintf("successfuly created file at path %s", path)}, nil
 }

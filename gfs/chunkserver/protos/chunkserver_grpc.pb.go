@@ -27,11 +27,11 @@ type ChunkServerClient interface {
 	// Receive potential write data from clients.
 	ReceiveWriteData(ctx context.Context, in *WriteDataBundle, opts ...grpc.CallOption) (*Ack, error)
 	// Commits a mutation operation on primary.
-	PrimaryCommitMutate(ctx context.Context, in *ChunkHandler, opts ...grpc.CallOption) (*Ack, error)
+	PrimaryCommitMutate(ctx context.Context, in *ChunkHandle, opts ...grpc.CallOption) (*Ack, error)
 	// Commits a mutation operation on secondary.
-	SecondaryCommitMutate(ctx context.Context, in *ChunkHandler, opts ...grpc.CallOption) (*Ack, error)
+	SecondaryCommitMutate(ctx context.Context, in *ChunkHandle, opts ...grpc.CallOption) (*Ack, error)
 	// Creates a new chunk.
-	CreateNewChunk(ctx context.Context, in *ChunkHandler, opts ...grpc.CallOption) (*Ack, error)
+	CreateNewChunk(ctx context.Context, in *ChunkHandle, opts ...grpc.CallOption) (*Ack, error)
 }
 
 type chunkServerClient struct {
@@ -60,7 +60,7 @@ func (c *chunkServerClient) ReceiveWriteData(ctx context.Context, in *WriteDataB
 	return out, nil
 }
 
-func (c *chunkServerClient) PrimaryCommitMutate(ctx context.Context, in *ChunkHandler, opts ...grpc.CallOption) (*Ack, error) {
+func (c *chunkServerClient) PrimaryCommitMutate(ctx context.Context, in *ChunkHandle, opts ...grpc.CallOption) (*Ack, error) {
 	out := new(Ack)
 	err := c.cc.Invoke(ctx, "/protos.ChunkServer/PrimaryCommitMutate", in, out, opts...)
 	if err != nil {
@@ -69,7 +69,7 @@ func (c *chunkServerClient) PrimaryCommitMutate(ctx context.Context, in *ChunkHa
 	return out, nil
 }
 
-func (c *chunkServerClient) SecondaryCommitMutate(ctx context.Context, in *ChunkHandler, opts ...grpc.CallOption) (*Ack, error) {
+func (c *chunkServerClient) SecondaryCommitMutate(ctx context.Context, in *ChunkHandle, opts ...grpc.CallOption) (*Ack, error) {
 	out := new(Ack)
 	err := c.cc.Invoke(ctx, "/protos.ChunkServer/SecondaryCommitMutate", in, out, opts...)
 	if err != nil {
@@ -78,7 +78,7 @@ func (c *chunkServerClient) SecondaryCommitMutate(ctx context.Context, in *Chunk
 	return out, nil
 }
 
-func (c *chunkServerClient) CreateNewChunk(ctx context.Context, in *ChunkHandler, opts ...grpc.CallOption) (*Ack, error) {
+func (c *chunkServerClient) CreateNewChunk(ctx context.Context, in *ChunkHandle, opts ...grpc.CallOption) (*Ack, error) {
 	out := new(Ack)
 	err := c.cc.Invoke(ctx, "/protos.ChunkServer/CreateNewChunk", in, out, opts...)
 	if err != nil {
@@ -96,11 +96,11 @@ type ChunkServerServer interface {
 	// Receive potential write data from clients.
 	ReceiveWriteData(context.Context, *WriteDataBundle) (*Ack, error)
 	// Commits a mutation operation on primary.
-	PrimaryCommitMutate(context.Context, *ChunkHandler) (*Ack, error)
+	PrimaryCommitMutate(context.Context, *ChunkHandle) (*Ack, error)
 	// Commits a mutation operation on secondary.
-	SecondaryCommitMutate(context.Context, *ChunkHandler) (*Ack, error)
+	SecondaryCommitMutate(context.Context, *ChunkHandle) (*Ack, error)
 	// Creates a new chunk.
-	CreateNewChunk(context.Context, *ChunkHandler) (*Ack, error)
+	CreateNewChunk(context.Context, *ChunkHandle) (*Ack, error)
 	mustEmbedUnimplementedChunkServerServer()
 }
 
@@ -114,13 +114,13 @@ func (UnimplementedChunkServerServer) Read(context.Context, *ReadRequest) (*Read
 func (UnimplementedChunkServerServer) ReceiveWriteData(context.Context, *WriteDataBundle) (*Ack, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReceiveWriteData not implemented")
 }
-func (UnimplementedChunkServerServer) PrimaryCommitMutate(context.Context, *ChunkHandler) (*Ack, error) {
+func (UnimplementedChunkServerServer) PrimaryCommitMutate(context.Context, *ChunkHandle) (*Ack, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PrimaryCommitMutate not implemented")
 }
-func (UnimplementedChunkServerServer) SecondaryCommitMutate(context.Context, *ChunkHandler) (*Ack, error) {
+func (UnimplementedChunkServerServer) SecondaryCommitMutate(context.Context, *ChunkHandle) (*Ack, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SecondaryCommitMutate not implemented")
 }
-func (UnimplementedChunkServerServer) CreateNewChunk(context.Context, *ChunkHandler) (*Ack, error) {
+func (UnimplementedChunkServerServer) CreateNewChunk(context.Context, *ChunkHandle) (*Ack, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateNewChunk not implemented")
 }
 func (UnimplementedChunkServerServer) mustEmbedUnimplementedChunkServerServer() {}
@@ -173,7 +173,7 @@ func _ChunkServer_ReceiveWriteData_Handler(srv interface{}, ctx context.Context,
 }
 
 func _ChunkServer_PrimaryCommitMutate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ChunkHandler)
+	in := new(ChunkHandle)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -185,13 +185,13 @@ func _ChunkServer_PrimaryCommitMutate_Handler(srv interface{}, ctx context.Conte
 		FullMethod: "/protos.ChunkServer/PrimaryCommitMutate",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChunkServerServer).PrimaryCommitMutate(ctx, req.(*ChunkHandler))
+		return srv.(ChunkServerServer).PrimaryCommitMutate(ctx, req.(*ChunkHandle))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _ChunkServer_SecondaryCommitMutate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ChunkHandler)
+	in := new(ChunkHandle)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -203,13 +203,13 @@ func _ChunkServer_SecondaryCommitMutate_Handler(srv interface{}, ctx context.Con
 		FullMethod: "/protos.ChunkServer/SecondaryCommitMutate",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChunkServerServer).SecondaryCommitMutate(ctx, req.(*ChunkHandler))
+		return srv.(ChunkServerServer).SecondaryCommitMutate(ctx, req.(*ChunkHandle))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _ChunkServer_CreateNewChunk_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ChunkHandler)
+	in := new(ChunkHandle)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -221,7 +221,7 @@ func _ChunkServer_CreateNewChunk_Handler(srv interface{}, ctx context.Context, d
 		FullMethod: "/protos.ChunkServer/CreateNewChunk",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChunkServerServer).CreateNewChunk(ctx, req.(*ChunkHandler))
+		return srv.(ChunkServerServer).CreateNewChunk(ctx, req.(*ChunkHandle))
 	}
 	return interceptor(ctx, in, info, handler)
 }

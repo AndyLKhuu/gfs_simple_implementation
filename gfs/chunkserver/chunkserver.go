@@ -13,6 +13,7 @@ import (
 	"os"
 )
 
+// TO:DO Have these variables be global instead of replicating them
 var chunkServerTempDirectoryPath = "../temp_dfs_storage/"
 
 func InitChunkServer(csAddr int) {

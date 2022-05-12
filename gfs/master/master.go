@@ -27,7 +27,10 @@ func InitMasterServer(mAddr string, numChunkServers int, chunkServerPortBase int
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	s := &services.MasterServer{ChunkServerClients: make(map[string]cs.ChunkServerClient), Files: make(map[string][]int)}
+	s := &services.MasterServer{
+		ChunkServerClients: make(map[string]cs.ChunkServerClient),
+		Files:              make(map[string][]uint64),
+		Chunks:             make(map[uint64][]string)}
 
 	grpcServer := grpc.NewServer()
 
@@ -63,7 +66,13 @@ func InitMasterServer(mAddr string, numChunkServers int, chunkServerPortBase int
 		}
 	}()
 
+	// TO:DO Fix the subtle bug where system will crash if the number of
+	// successful chunkservers created != numChunkServers variable, then
+	// system will crash
+
 	// Store connections to chunkservers
+	// TO:DO Restructure connections to chunkservers so that they are connected
+	// asynchronously and not in increasing order. (Connection to CS 2 shouldn't depend on Connection to CS 1)
 	for i := 0; i < int(numChunkServers); i++ {
 		config := <-chunkserver_chan
 		s.ChunkServerClients[config.cs_addr] = config.cs_client
