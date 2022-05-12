@@ -85,6 +85,11 @@ func (client *Client) Read(filepath string, offset int64, data []byte) int {
  	chunkIdx := int32(offset/chunkSize);
 
 	getFileLocationReply, err := masterClient.GetFileLocation(context.Background(), &protos.ChunkLocationRequest{Filepath: filepath, ChunkIdx: chunkIdx})
+	if err != nil {
+		log.Fatalf("Error when calling GetFileLocation: %s", err);
+		return -1;
+	}
+
 	log.Println(getFileLocationReply);
 
 	chunkLocation := getFileLocationReply.ChunkServerIds
@@ -106,6 +111,10 @@ func (client *Client) Write(filepath string, offset int64, data []byte) int {
  	chunkIdx := int32(offset/chunkSize);
 
 	getFileLocationReply, err := masterClient.GetFileLocation(context.Background(), &protos.ChunkLocationRequest{Filepath: filepath, ChunkIdx: chunkIdx})
+	if err != nil {
+		log.Fatalf("Error when calling GetFileLocation: %s", err);
+		return -1;
+	}
 	log.Println(getFileLocationReply);
 
 	chunkLocation := getFileLocationReply.ChunkServerIds

@@ -18,6 +18,7 @@ func (s *MasterServer) SendHeartBeatMessage(ctx context.Context, cid *protos.Chu
 	return &protos.Ack{}, nil
 }
 
+// TODO: Rename to get chunkLocation for more accurate description
 func (s *MasterServer) GetFileLocation(ctx context.Context, chunkLocReq *protos.ChunkLocationRequest) (*protos.ChunkLocationReply, error) {
 	
 	filepath := chunkLocReq.Filepath
