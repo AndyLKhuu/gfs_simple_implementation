@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"gfs/chunkserver/protos"
 	"log"
 	"os"
@@ -40,13 +39,13 @@ func (s *ChunkServer) SecondaryCommitMutate(ctx context.Context, ch *protos.Chun
 
 func (s *ChunkServer) CreateNewChunk(ctx context.Context, ch *protos.ChunkHandle) (*protos.Ack, error) {
 	chunkHandle := ch.Ch
-	// TO:DO What's the safe way to do these string concatenations?
 	filepath := s.Rootpath + "/" + strconv.Itoa(int(chunkHandle))
+
 	_, err := os.Create(filepath)
 	if err != nil {
 		log.Fatal(err)
 	}
 	s.ChunkHandleToFile[chunkHandle] = filepath
 
-	return &protos.Ack{Msg: fmt.Sprintf("successfully replicated chunk on %s", s.Address)}, nil
+	return &protos.Ack{Msg: "successfully replicated chunk on " + s.Address}, nil
 }

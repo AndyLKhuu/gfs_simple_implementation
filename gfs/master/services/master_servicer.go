@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	cs "gfs/chunkserver/protos"
 	"gfs/master/protos"
@@ -55,8 +56,7 @@ func (s *MasterServer) CreateFile(ctx context.Context, createReq *protos.FileCre
 	numChunkServers := len(s.ChunkServerClients)
 	// TO:DO Have better replication factor check (> n/2?)
 	if int(repFactor) > numChunkServers || repFactor < 1 {
-		// TO:DO Create error wrapper for rep factor error
-		return &protos.Ack{Message: "Replication Factor is Invalid"}, nil
+		return &protos.Ack{Message: "Replication Factor is Invalid"}, errors.New("Invalid Replication Factor Value")
 	}
 
 	// Choose REPFACTOR servers

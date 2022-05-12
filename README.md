@@ -13,4 +13,6 @@
 - Clean up communication set up calls, maybe it's too many nested goroutines
 - Add a flag which supresses log calls (different levels of logs perhaps?)
 - Fix Subtle Bug where if the number of successful Chunkservers is < NUMCHUNKSERVERS, then the error is properly handled
+- Delete helloWorld Example
+
 
