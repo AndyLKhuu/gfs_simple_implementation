@@ -39,7 +39,7 @@ func (s *ChunkServer) SecondaryCommitMutate(ctx context.Context, ch *protos.Chun
 
 func (s *ChunkServer) CreateNewChunk(ctx context.Context, ch *protos.ChunkHandle) (*protos.Ack, error) {
 	chunkHandle := ch.Ch
-	filepath := s.Rootpath + "/" + strconv.Itoa(int(chunkHandle))
+	filepath := s.Rootpath + "/" + strconv.Itoa(int(chunkHandle)) + ".txt"
 
 	_, err := os.Create(filepath)
 	if err != nil {
