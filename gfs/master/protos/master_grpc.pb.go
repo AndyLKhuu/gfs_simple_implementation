@@ -30,9 +30,9 @@ type MasterClient interface {
 	GetSystemChunkSize(ctx context.Context, in *SystemChunkSizeRequest, opts ...grpc.CallOption) (*ChunkSize, error)
 	// ClientWriteRequest
 	ReceiveClientWriteRequest(ctx context.Context, in *ClientWriteRequest, opts ...grpc.CallOption) (*Ack, error)
-	// ClientCreateRequest
-	ReceiveClientCreateRequest(ctx context.Context, in *ClientCreateRequest, opts ...grpc.CallOption) (*Ack, error)
-	ReceiveClientDeleteRequest(ctx context.Context, in *ClientDeleteRequest, opts ...grpc.CallOption) (*Ack, error)
+	// CreateFile
+	CreateFile(ctx context.Context, in *FileCreateRequest, opts ...grpc.CallOption) (*Ack, error)
+	RemoveFile(ctx context.Context, in *FileRemoveRequest, opts ...grpc.CallOption) (*Ack, error)
 }
 
 type masterClient struct {
@@ -79,18 +79,18 @@ func (c *masterClient) ReceiveClientWriteRequest(ctx context.Context, in *Client
 	return out, nil
 }
 
-func (c *masterClient) ReceiveClientCreateRequest(ctx context.Context, in *ClientCreateRequest, opts ...grpc.CallOption) (*Ack, error) {
+func (c *masterClient) CreateFile(ctx context.Context, in *FileCreateRequest, opts ...grpc.CallOption) (*Ack, error) {
 	out := new(Ack)
-	err := c.cc.Invoke(ctx, "/master.Master/ReceiveClientCreateRequest", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/master.Master/CreateFile", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *masterClient) ReceiveClientDeleteRequest(ctx context.Context, in *ClientDeleteRequest, opts ...grpc.CallOption) (*Ack, error) {
+func (c *masterClient) RemoveFile(ctx context.Context, in *FileRemoveRequest, opts ...grpc.CallOption) (*Ack, error) {
 	out := new(Ack)
-	err := c.cc.Invoke(ctx, "/master.Master/ReceiveClientDeleteRequest", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/master.Master/RemoveFile", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -109,9 +109,9 @@ type MasterServer interface {
 	GetSystemChunkSize(context.Context, *SystemChunkSizeRequest) (*ChunkSize, error)
 	// ClientWriteRequest
 	ReceiveClientWriteRequest(context.Context, *ClientWriteRequest) (*Ack, error)
-	// ClientCreateRequest
-	ReceiveClientCreateRequest(context.Context, *ClientCreateRequest) (*Ack, error)
-	ReceiveClientDeleteRequest(context.Context, *ClientDeleteRequest) (*Ack, error)
+	// CreateFile
+	CreateFile(context.Context, *FileCreateRequest) (*Ack, error)
+	RemoveFile(context.Context, *FileRemoveRequest) (*Ack, error)
 	mustEmbedUnimplementedMasterServer()
 }
 
@@ -131,11 +131,11 @@ func (UnimplementedMasterServer) GetSystemChunkSize(context.Context, *SystemChun
 func (UnimplementedMasterServer) ReceiveClientWriteRequest(context.Context, *ClientWriteRequest) (*Ack, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReceiveClientWriteRequest not implemented")
 }
-func (UnimplementedMasterServer) ReceiveClientCreateRequest(context.Context, *ClientCreateRequest) (*Ack, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ReceiveClientCreateRequest not implemented")
+func (UnimplementedMasterServer) CreateFile(context.Context, *FileCreateRequest) (*Ack, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateFile not implemented")
 }
-func (UnimplementedMasterServer) ReceiveClientDeleteRequest(context.Context, *ClientDeleteRequest) (*Ack, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ReceiveClientDeleteRequest not implemented")
+func (UnimplementedMasterServer) RemoveFile(context.Context, *FileRemoveRequest) (*Ack, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemoveFile not implemented")
 }
 func (UnimplementedMasterServer) mustEmbedUnimplementedMasterServer() {}
 
@@ -222,38 +222,38 @@ func _Master_ReceiveClientWriteRequest_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Master_ReceiveClientCreateRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ClientCreateRequest)
+func _Master_CreateFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FileCreateRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MasterServer).ReceiveClientCreateRequest(ctx, in)
+		return srv.(MasterServer).CreateFile(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/master.Master/ReceiveClientCreateRequest",
+		FullMethod: "/master.Master/CreateFile",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MasterServer).ReceiveClientCreateRequest(ctx, req.(*ClientCreateRequest))
+		return srv.(MasterServer).CreateFile(ctx, req.(*FileCreateRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Master_ReceiveClientDeleteRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ClientDeleteRequest)
+func _Master_RemoveFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FileRemoveRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MasterServer).ReceiveClientDeleteRequest(ctx, in)
+		return srv.(MasterServer).RemoveFile(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/master.Master/ReceiveClientDeleteRequest",
+		FullMethod: "/master.Master/RemoveFile",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MasterServer).ReceiveClientDeleteRequest(ctx, req.(*ClientDeleteRequest))
+		return srv.(MasterServer).RemoveFile(ctx, req.(*FileRemoveRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -282,12 +282,12 @@ var Master_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Master_ReceiveClientWriteRequest_Handler,
 		},
 		{
-			MethodName: "ReceiveClientCreateRequest",
-			Handler:    _Master_ReceiveClientCreateRequest_Handler,
+			MethodName: "CreateFile",
+			Handler:    _Master_CreateFile_Handler,
 		},
 		{
-			MethodName: "ReceiveClientDeleteRequest",
-			Handler:    _Master_ReceiveClientDeleteRequest_Handler,
+			MethodName: "RemoveFile",
+			Handler:    _Master_RemoveFile_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

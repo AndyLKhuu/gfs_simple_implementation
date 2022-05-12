@@ -12,10 +12,20 @@ service Master {
   // ClientWriteRequest
   rpc ReceiveClientWriteRequest(ClientWriteRequest) returns (Ack) {} 
 
-  // ClientCreateRequest
-  rpc ReceiveClientCreateRequest(ClientCreateRequest) returns (Ack) {} 
+  // CreateFile 
+  rpc CreateFile(FileCreateRequest) returns (Ack) {}
 
-  rpc ReceiveClientDeleteRequest(ClientDeleteRequest) returns (Ack) {} 
+  rpc RemoveFile(FileRemoveRequest) returns (Ack) {}
+
+}
+
+message FileCreateRequest {
+  string path = 1;
+  int64 repFactor = 2;
+}
+
+message FileRemoveRequest {
+  string path = 1;
 }
 
 // The request message containing the user's name.
@@ -30,14 +40,6 @@ message ChunkSize {
 
 // The place holder message for a client write request.
 message ClientWriteRequest {}
-
-message ClientCreateRequest {
-  string filepath = 1;
-}
-
-message ClientDeleteRequest {
-  string filepath = 1;
-}
 
 // The empty message for a client's inquiry on the system chunk size.
 message SystemChunkSizeRequest {}

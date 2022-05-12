@@ -49,7 +49,7 @@ func InitClient(mAddr string) *Client {
 
 func (client *Client) Create(filepath string) int {
 	masterClient := *(client.MasterClient);
-	_, err := masterClient.ReceiveClientCreateRequest(context.Background(), &protos.ClientCreateRequest{Filepath: filepath})
+	_, err := masterClient.CreateFile(context.Background(), &protos.FileCreateRequest{Path: filepath, RepFactor: 1})
 	if err != nil {
 		log.Println("Error creating file.");
 		return -1;
@@ -58,9 +58,9 @@ func (client *Client) Create(filepath string) int {
 	return 0;
 }
 
-func (client *Client) Delete(filepath string) int {
+func (client *Client) Remove(filepath string) int {
 	masterClient := *(client.MasterClient);
-	_, err := masterClient.ReceiveClientDeleteRequest(context.Background(), &protos.ClientDeleteRequest{Filepath: filepath})
+	_, err := masterClient.RemoveFile(context.Background(), &protos.FileRemoveRequest{Path: filepath})
 	if err != nil {
 		log.Println("Error deleting file.");
 		return -1;

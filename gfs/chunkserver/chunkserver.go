@@ -13,11 +13,14 @@ import (
 	"os"
 )
 
+// TO:DO Have these variables be global instead of replicating them
 var chunkServerTempDirectoryPath = "../temp_dfs_storage/"
 
 func InitChunkServer(csAddr int) {
+	// TO:DO Refactor so that we aren't calling strconv so many times
+	chunkserverRootDir := chunkServerTempDirectoryPath + strconv.Itoa(csAddr)
 	fmt.Println("starting up chunkserver " + strconv.Itoa(csAddr) + ".")
-	if err := os.MkdirAll(chunkServerTempDirectoryPath+strconv.Itoa(csAddr), os.ModePerm); err != nil {
+	if err := os.MkdirAll(chunkserverRootDir, os.ModePerm); err != nil {
 		log.Fatal(err)
 	}
 
@@ -26,13 +29,19 @@ func InitChunkServer(csAddr int) {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	s := services.ChunkServer{}
+	s := services.ChunkServer{
+		ChunkHandleToFile: make(map[uint64]string),
+		Rootpath:          chunkserverRootDir,
+		Address:           strconv.Itoa(csAddr)}
 
 	grpcServer := grpc.NewServer()
 
 	protos.RegisterChunkServerServer(grpcServer, &s)
 
-	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %s", err)
-	}
+	// Start Chunkserver
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatalf("failed to serve: %s", err)
+		}
+	}()
 }

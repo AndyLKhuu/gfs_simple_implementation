@@ -10,14 +10,15 @@ import (
 	"gfs/client"
 	"log"
 	"time"
+
 	// "google.golang.org/grpc"
-	// "reflect"
 )
 
 var masterServerPort = ":9000"
 var chunkServerPortBase = 10000
 var NUM_CHUNK_SERVERS = 3
 var NUM_CLIENTS = 1
+var shared_file_path = "../temp_dfs_storage/shared/"
 
 func main() {
 	// Start up Master Server
@@ -38,11 +39,12 @@ func main() {
 			c := client.InitClient(masterServerPort) // Idea: go func() this so we can run clients in parallel. In those funcs, we can run different workloads 
 			defer c.MasterConn.Close();
 			log.Println("Initialized a client");
-			c.Create("test.txt");
-			c.Read("test.txt", 0, nil);
+			fname := shared_file_path + "test.txt";
+			c.Create(fname);
+			c.Read(fname, 0, nil);
 			var str = "hello";
-			c.Write("test.txt", 0, []byte(str));
-			c.Delete("test.txt");
+			c.Write(fname, 0, []byte(str));
+			// c.Remove(fname); // careful using this when implementing chunk server repl.
 		}()
 	}
 
