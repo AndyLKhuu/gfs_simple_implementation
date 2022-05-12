@@ -8,11 +8,11 @@ service ChunkServer {
   // Receive potential write data from clients.
   rpc ReceiveWriteData(WriteDataBundle) returns (Ack) {}
   // Commits a mutation operation on primary.
-  rpc PrimaryCommitMutate(ChunkHandler) returns (Ack) {}
+  rpc PrimaryCommitMutate(ChunkHandle) returns (Ack) {}
   // Commits a mutation operation on secondary.
-  rpc SecondaryCommitMutate(ChunkHandler) returns (Ack) {}
+  rpc SecondaryCommitMutate(ChunkHandle) returns (Ack) {}
   // Creates a new chunk.
-  rpc CreateNewChunk(ChunkHandler) returns (Ack) {}
+  rpc CreateNewChunk(ChunkHandle) returns (Ack) {}
 }
 
 // The reply message containing the data from a file read.
@@ -27,9 +27,9 @@ message ReadRequest {
   int32 r = 3;
 }
 
-// A message containing a chunk handler
-message ChunkHandler {
-  int64 ch = 1;
+// A message containing a chunk handle
+message ChunkHandle {
+  uint64 ch = 1;
 }
 
 // A reply message containing an acknowledgement
