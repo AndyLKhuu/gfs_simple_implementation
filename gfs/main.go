@@ -6,6 +6,7 @@ import (
 	"gfs/master"
 	"gfs/master/protos"
 	"log"
+	"os"
 	"time"
 
 	"google.golang.org/grpc"
@@ -45,6 +46,10 @@ func initClientConnection() {
 }
 
 func main() {
+	if err := os.MkdirAll("../temp_dfs_storage", os.ModePerm); err != nil {
+		log.Fatal(err)
+	}
+
 	// Start up Master Server
 	go master.InitMasterServer(masterServerPort, NUM_CHUNK_SERVERS, chunkServerPortBase)
 
