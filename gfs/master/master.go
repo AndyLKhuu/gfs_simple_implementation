@@ -1,10 +1,10 @@
 package master
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"strconv"
 	"time"
 
@@ -15,6 +15,9 @@ import (
 	"google.golang.org/grpc"
 )
 
+// TO:DO Better name + Propagate as global variable
+var shared_file_path = "../temp_dfs_storage/shared"
+
 type ChunkServerConfig struct {
 	cs_addr   string
 	cs_client cs.ChunkServerClient
@@ -22,6 +25,12 @@ type ChunkServerConfig struct {
 
 func InitMasterServer(mAddr string, numChunkServers int, chunkServerPortBase int) {
 	fmt.Println("starting up master server.")
+
+	err := os.MkdirAll(shared_file_path, os.ModePerm)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	lis, err := net.Listen("tcp", mAddr)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
@@ -77,11 +86,6 @@ func InitMasterServer(mAddr string, numChunkServers int, chunkServerPortBase int
 		config := <-chunkserver_chan
 		s.ChunkServerClients[config.cs_addr] = config.cs_client
 		log.Printf("storing chunkserver client at address %s", config.cs_addr)
-		response, err := s.ChunkServerClients[config.cs_addr].Read(context.Background(), &cs.ReadRequest{})
-		if err != nil {
-			log.Fatalf("error when calling Read: %s", err)
-		}
-		log.Printf("Chunkserver %s's call of Master's Read() returns : %s", config.cs_addr, response.Data)
 	}
 	close(chunkserver_chan)
 }

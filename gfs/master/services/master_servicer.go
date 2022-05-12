@@ -17,6 +17,8 @@ type MasterServer struct {
 	Chunks             map[uint64][]string // ChunkHandles to Replica Locations
 }
 
+// TO:DO There should be an init function for the Master Server
+
 func (s *MasterServer) SendHeartBeatMessage(ctx context.Context, cid *protos.ChunkServerID) (*protos.Ack, error) {
 	return &protos.Ack{}, nil
 }
@@ -46,6 +48,7 @@ func (s *MasterServer) CreateFile(ctx context.Context, createReq *protos.FileCre
 	// Generate random chunk handle
 	// TO:DO Ensure that chunkhandles are unique
 	ch := rand.Uint64()
+	fmt.Printf("created chunk with chunk handle %d \n", ch)
 	chunks := append(s.Files[path], ch)
 
 	// Replicate empty chunks
