@@ -3,11 +3,12 @@ package client
 import (
 	"context"
 	// "fmt"
-	"gfs/master/protos"
+	"gfs/master/protos" // alias this import to 'm' to match 'cs' 
 	"log"
 	cs "gfs/chunkserver/protos"
 
 	"time"
+	"math/rand"
 	// "reflect"
 
 	"google.golang.org/grpc"
@@ -75,12 +76,20 @@ func (client *Client) Read(path string, offset int64, data []byte) int {
 		return -1;
 	}
 
-	log.Println(getChunkLocationReply);
-
 	chunkLocations := getChunkLocationReply.ChunkServerIds
 	chunkHandle := getChunkLocationReply.ChunkHandle
-	log.Printf("Obtained (chunkLocations, chunkHandle): (%s, %d)", chunkLocations, chunkHandle)
-	log.Printf("TODO: build and invoke chunkserverReadRPC(chunkHandle, byteRange) => chunkData")
+
+	chunkServerAddr := chunkLocations[rand.Intn(len(chunkLocations))]; // Current readRequest load balancing is Random
+	conn, err := grpc.Dial(chunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure()) // connecting to chunk server
+	if err != nil {
+		log.Printf("Client did not connect to chunk server.")
+		return -1
+	}
+
+	chunkServerClient := cs.NewChunkServerClient(conn);
+	readReply, err := chunkServerClient.Read(context.Background(), &cs.ReadRequest{Ch: chunkHandle, L: 0, R: 0})
+
+	copy(data, []byte(readReply.Data) )
 	return 0;
 }
 

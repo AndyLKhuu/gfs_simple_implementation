@@ -32,6 +32,7 @@ type MasterClient interface {
 	ReceiveClientWriteRequest(ctx context.Context, in *ClientWriteRequest, opts ...grpc.CallOption) (*Ack, error)
 	// CreateFile
 	CreateFile(ctx context.Context, in *FileCreateRequest, opts ...grpc.CallOption) (*Ack, error)
+	// RemoveFile
 	RemoveFile(ctx context.Context, in *FileRemoveRequest, opts ...grpc.CallOption) (*Ack, error)
 }
 
@@ -111,6 +112,7 @@ type MasterServer interface {
 	ReceiveClientWriteRequest(context.Context, *ClientWriteRequest) (*Ack, error)
 	// CreateFile
 	CreateFile(context.Context, *FileCreateRequest) (*Ack, error)
+	// RemoveFile
 	RemoveFile(context.Context, *FileRemoveRequest) (*Ack, error)
 	mustEmbedUnimplementedMasterServer()
 }
