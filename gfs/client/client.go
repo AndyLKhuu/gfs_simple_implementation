@@ -34,46 +34,29 @@ func InitClient(mAddr string) *Client {
 	return client;
 }
 
-
-/* 	methods to implement:
-	- create
-	- delete
-	- open*
-	- close*
-	- read
-	- write
-	- snapshot*
-	- record append*
- */
-
-
-func (client *Client) Create(filepath string) int {
+func (client *Client) Create(path string) int {
 	masterClient := *(client.MasterClient);
-	_, err := masterClient.CreateFile(context.Background(), &protos.FileCreateRequest{Path: filepath, RepFactor: 1})
+	_, err := masterClient.CreateFile(context.Background(), &protos.FileCreateRequest{Path: path, RepFactor: 1})
 	if err != nil {
 		log.Println("Error creating file.");
 		return -1;
 	} 
-	log.Printf("Succesfully created file: %s", filepath);
+	log.Printf("Succesfully created file: %s", path);
 	return 0;
 }
 
-func (client *Client) Remove(filepath string) int {
+func (client *Client) Remove(path string) int {
 	masterClient := *(client.MasterClient);
-	_, err := masterClient.RemoveFile(context.Background(), &protos.FileRemoveRequest{Path: filepath})
+	_, err := masterClient.RemoveFile(context.Background(), &protos.FileRemoveRequest{Path: path})
 	if err != nil {
 		log.Println("Error deleting file.");
 		return -1;
 	} 
-	log.Printf("Succesfully deleted file: %s", filepath);
+	log.Printf("Succesfully deleted file: %s", path);
 	return 0;
 }
 
-func (client *Client) Open(filepath string) int {
-	return -1;
-}
-
-func (client *Client) Read(filepath string, offset int64, data []byte) int {
+func (client *Client) Read(path string, offset int64, data []byte) int {
 	masterClient := *(client.MasterClient);
 	getSystemChunkSizeReply, err := masterClient.GetSystemChunkSize(context.Background(), &protos.SystemChunkSizeRequest{})
 	if err != nil {
@@ -84,22 +67,22 @@ func (client *Client) Read(filepath string, offset int64, data []byte) int {
 	chunkSize := getSystemChunkSizeReply.Size;
  	chunkIdx := int32(offset/chunkSize);
 
-	getFileLocationReply, err := masterClient.GetFileLocation(context.Background(), &protos.ChunkLocationRequest{Filepath: filepath, ChunkIdx: chunkIdx})
+	 getChunkLocationReply, err := masterClient.GetChunkLocation(context.Background(), &protos.ChunkLocationRequest{Path: path, ChunkIdx: chunkIdx})
 	if err != nil {
-		log.Fatalf("Error when calling GetFileLocation: %s", err);
+		log.Fatalf("Error when calling GetChunkLocation: %s", err);
 		return -1;
 	}
 
-	log.Println(getFileLocationReply);
+	log.Println(getChunkLocationReply);
 
-	chunkLocation := getFileLocationReply.ChunkServerIds
-	chunkHandle := getFileLocationReply.ChunkHandler
-	log.Printf("Obtained (chunkLocation, chunkHandle): (%d, %d)", chunkLocation, chunkHandle)
+	chunkLocation := getChunkLocationReply.ChunkServerIds
+	chunkHandle := getChunkLocationReply.ChunkHandle
+	log.Printf("Obtained (chunkLocation, chunkHandle): (%s, %d)", chunkLocation, chunkHandle)
 	log.Printf("TODO: build and invoke chunkserverReadRPC(chunkHandle, byteRange) => chunkData")
 	return 0;
 }
 
-func (client *Client) Write(filepath string, offset int64, data []byte) int {
+func (client *Client) Write(path string, offset int64, data []byte) int {
 	masterClient := *(client.MasterClient);
 	getSystemChunkSizeReply, err := masterClient.GetSystemChunkSize(context.Background(), &protos.SystemChunkSizeRequest{})
 	if err != nil {
@@ -110,15 +93,15 @@ func (client *Client) Write(filepath string, offset int64, data []byte) int {
 	chunkSize := getSystemChunkSizeReply.Size;
  	chunkIdx := int32(offset/chunkSize);
 
-	getFileLocationReply, err := masterClient.GetFileLocation(context.Background(), &protos.ChunkLocationRequest{Filepath: filepath, ChunkIdx: chunkIdx})
+	getChunkLocationReply, err := masterClient.GetChunkLocation(context.Background(), &protos.ChunkLocationRequest{Path: path, ChunkIdx: chunkIdx})
 	if err != nil {
-		log.Fatalf("Error when calling GetFileLocation: %s", err);
+		log.Fatalf("Error when calling GetChunkLocation: %s", err);
 		return -1;
 	}
-	log.Println(getFileLocationReply);
+	log.Println(getChunkLocationReply);
 
-	chunkLocation := getFileLocationReply.ChunkServerIds
-	chunkHandle := getFileLocationReply.ChunkHandler
+	chunkLocation := getChunkLocationReply.ChunkServerIds
+	chunkHandle := getChunkLocationReply.ChunkHandle
 	log.Printf("Obtained (chunkLocation, chunkHandle): (%d, %d)", chunkLocation, chunkHandle)
 	log.Printf("TODO: build and invoke chunkserverWriteRPC(chunkHandle, byteRange) => chunkData")
 	return 0;

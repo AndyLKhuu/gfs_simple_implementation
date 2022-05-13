@@ -25,13 +25,12 @@ func (s *MasterServer) SendHeartBeatMessage(ctx context.Context, cid *protos.Chu
 }
 
 // TODO: Rename to get chunkLocation for more accurate description
-func (s *MasterServer) GetFileLocation(ctx context.Context, chunkLocReq *protos.ChunkLocationRequest) (*protos.ChunkLocationReply, error) {
-	
-	filepath := chunkLocReq.Filepath
+func (s *MasterServer) GetChunkLocation(ctx context.Context, chunkLocReq *protos.ChunkLocationRequest) (*protos.ChunkLocationReply, error) {
+	path := chunkLocReq.Path
 	chunkIdx := chunkLocReq.ChunkIdx;
-	log.Printf("Master.GetFileLocation invoked with %s, %d", filepath, chunkIdx);
-	
-	return &protos.ChunkLocationReply{ChunkHandler: 0, ChunkServerIds: []int64{0, 0}}, nil // TODO fix hard coded values 
+	chunkHandle := s.Files[path][chunkIdx]
+	chunkServerIds := s.Chunks[chunkHandle]
+	return &protos.ChunkLocationReply{ChunkHandle: chunkHandle, ChunkServerIds: chunkServerIds}, nil // TODO fix hard coded values 
 }
 
 func (s *MasterServer) GetSystemChunkSize(ctx context.Context, sysChunkSizeReq *protos.SystemChunkSizeRequest) (*protos.ChunkSize, error) {
@@ -77,7 +76,9 @@ func (s *MasterServer) CreateFile(ctx context.Context, createReq *protos.FileCre
 
 		s.Chunks[ch] = append(s.Chunks[ch], k)
 	}
-	log.Println("TODO: Implement creating file across chunk servers.")
+	// log.Println("TODO: Implement creating file across chunk servers.")
+
+	// At this point, file is created in the shared directory and all chunk servers are allocated
 
 	s.Files[path] = chunks
 	return &protos.Ack{Message: fmt.Sprintf("successfuly created file at path %s", path)}, nil

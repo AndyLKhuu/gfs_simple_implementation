@@ -6,7 +6,7 @@ service Master {
   // Sends a heart beat message to the client
   rpc SendHeartBeatMessage (ChunkServerID) returns (Ack) {}
   // Retrieves the chunk handler of a chunk and the locations of its replicas
-  rpc GetFileLocation(ChunkLocationRequest) returns (ChunkLocationReply) {}
+  rpc GetChunkLocation(ChunkLocationRequest) returns (ChunkLocationReply) {}
   // Retrieve the fixed system chunksize
   rpc GetSystemChunkSize(SystemChunkSizeRequest) returns (ChunkSize) {}
   // ClientWriteRequest
@@ -15,6 +15,7 @@ service Master {
   // CreateFile 
   rpc CreateFile(FileCreateRequest) returns (Ack) {}
 
+  // RemoveFile
   rpc RemoveFile(FileRemoveRequest) returns (Ack) {}
 
 }
@@ -46,14 +47,14 @@ message SystemChunkSizeRequest {}
 
 // The request message for a file's chunk size
 message ChunkLocationRequest {
-  string filepath = 1;
+  string path = 1;
   int32 chunkIdx = 2;
 }
 
 // The reply message for a file's chunk handler and its replica locations.
 message ChunkLocationReply {
-  int64 chunkHandler = 1;
-  repeated int64 chunkServerIds = 2;
+  uint64 chunkHandle = 1;
+  repeated string chunkServerIds = 2;
 }
   
 // The response message acknowledging a transaction.

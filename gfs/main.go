@@ -36,7 +36,7 @@ func main() {
 	// Start up Clients
 	for i := 0; i < NUM_CLIENTS; i++ {
 		go func () {
-			c := client.InitClient(masterServerPort) // Idea: go func() this so we can run clients in parallel. In those funcs, we can run different workloads 
+			c := client.InitClient(masterServerPort) 
 			defer c.MasterConn.Close();
 			log.Println("Initialized a client");
 			fname := shared_file_path + "test.txt";

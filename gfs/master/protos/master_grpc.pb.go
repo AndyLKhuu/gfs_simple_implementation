@@ -25,7 +25,7 @@ type MasterClient interface {
 	// Sends a heart beat message to the client
 	SendHeartBeatMessage(ctx context.Context, in *ChunkServerID, opts ...grpc.CallOption) (*Ack, error)
 	// Retrieves the chunk handler of a chunk and the locations of its replicas
-	GetFileLocation(ctx context.Context, in *ChunkLocationRequest, opts ...grpc.CallOption) (*ChunkLocationReply, error)
+	GetChunkLocation(ctx context.Context, in *ChunkLocationRequest, opts ...grpc.CallOption) (*ChunkLocationReply, error)
 	// Retrieve the fixed system chunksize
 	GetSystemChunkSize(ctx context.Context, in *SystemChunkSizeRequest, opts ...grpc.CallOption) (*ChunkSize, error)
 	// ClientWriteRequest
@@ -52,9 +52,9 @@ func (c *masterClient) SendHeartBeatMessage(ctx context.Context, in *ChunkServer
 	return out, nil
 }
 
-func (c *masterClient) GetFileLocation(ctx context.Context, in *ChunkLocationRequest, opts ...grpc.CallOption) (*ChunkLocationReply, error) {
+func (c *masterClient) GetChunkLocation(ctx context.Context, in *ChunkLocationRequest, opts ...grpc.CallOption) (*ChunkLocationReply, error) {
 	out := new(ChunkLocationReply)
-	err := c.cc.Invoke(ctx, "/master.Master/GetFileLocation", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/master.Master/GetChunkLocation", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ type MasterServer interface {
 	// Sends a heart beat message to the client
 	SendHeartBeatMessage(context.Context, *ChunkServerID) (*Ack, error)
 	// Retrieves the chunk handler of a chunk and the locations of its replicas
-	GetFileLocation(context.Context, *ChunkLocationRequest) (*ChunkLocationReply, error)
+	GetChunkLocation(context.Context, *ChunkLocationRequest) (*ChunkLocationReply, error)
 	// Retrieve the fixed system chunksize
 	GetSystemChunkSize(context.Context, *SystemChunkSizeRequest) (*ChunkSize, error)
 	// ClientWriteRequest
@@ -122,8 +122,8 @@ type UnimplementedMasterServer struct {
 func (UnimplementedMasterServer) SendHeartBeatMessage(context.Context, *ChunkServerID) (*Ack, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendHeartBeatMessage not implemented")
 }
-func (UnimplementedMasterServer) GetFileLocation(context.Context, *ChunkLocationRequest) (*ChunkLocationReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetFileLocation not implemented")
+func (UnimplementedMasterServer) GetChunkLocation(context.Context, *ChunkLocationRequest) (*ChunkLocationReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetChunkLocation not implemented")
 }
 func (UnimplementedMasterServer) GetSystemChunkSize(context.Context, *SystemChunkSizeRequest) (*ChunkSize, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSystemChunkSize not implemented")
@@ -168,20 +168,20 @@ func _Master_SendHeartBeatMessage_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Master_GetFileLocation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Master_GetChunkLocation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ChunkLocationRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MasterServer).GetFileLocation(ctx, in)
+		return srv.(MasterServer).GetChunkLocation(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/master.Master/GetFileLocation",
+		FullMethod: "/master.Master/GetChunkLocation",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MasterServer).GetFileLocation(ctx, req.(*ChunkLocationRequest))
+		return srv.(MasterServer).GetChunkLocation(ctx, req.(*ChunkLocationRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -270,8 +270,8 @@ var Master_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Master_SendHeartBeatMessage_Handler,
 		},
 		{
-			MethodName: "GetFileLocation",
-			Handler:    _Master_GetFileLocation_Handler,
+			MethodName: "GetChunkLocation",
+			Handler:    _Master_GetChunkLocation_Handler,
 		},
 		{
 			MethodName: "GetSystemChunkSize",
