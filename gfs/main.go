@@ -1,17 +1,12 @@
 package main
 
 import (
-
 	"fmt"
-	// "context"
 	"gfs/chunkserver"
 	"gfs/master"
-	// "gfs/master/protos"
 	"gfs/client"
 	"log"
 	"time"
-
-	// "google.golang.org/grpc"
 )
 
 var masterServerPort = ":9000"
