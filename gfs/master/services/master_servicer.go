@@ -96,6 +96,7 @@ func (s *MasterServer) RemoveFile(ctx context.Context, removeReq *protos.FileRem
 		log.Fatal("couldn't Delete File \n")
 	}
 	log.Println("TODO: Implement deleting file across chunk servers.")
+ 	//TO:DO We also have to remove the file meta data from the in-memory structures on the master
 
 	return &protos.Ack{Message: fmt.Sprintf("successfuly deleted file at path %s", path)}, nil
 }
