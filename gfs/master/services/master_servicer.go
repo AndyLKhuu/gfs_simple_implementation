@@ -31,8 +31,13 @@ func (s *MasterServer) SendHeartBeatMessage(ctx context.Context, cid *protos.Chu
 	return &protos.Ack{}, nil
 }
 
-func (s *MasterServer) GetFileLocation(ctx context.Context, chunkLocReq *protos.ChunkLocationRequest) (*protos.ChunkLocationReply, error) {
-	return &protos.ChunkLocationReply{}, nil
+// TODO: Rename to get chunkLocation for more accurate description
+func (s *MasterServer) GetChunkLocation(ctx context.Context, chunkLocReq *protos.ChunkLocationRequest) (*protos.ChunkLocationReply, error) {
+	path := chunkLocReq.Path
+	chunkIdx := chunkLocReq.ChunkIdx;
+	chunkHandle := s.Files[path][chunkIdx]
+	chunkServerIds := s.Chunks[chunkHandle]
+	return &protos.ChunkLocationReply{ChunkHandle: chunkHandle, ChunkServerIds: chunkServerIds}, nil // TODO fix hard coded values 
 }
 
 func (s *MasterServer) GetSystemChunkSize(ctx context.Context, sysChunkSizeReq *protos.SystemChunkSizeRequest) (*protos.ChunkSize, error) {
@@ -76,10 +81,26 @@ func (s *MasterServer) CreateFile(ctx context.Context, createReq *protos.FileCre
 
 		s.Chunks[ch] = append(s.Chunks[ch], k)
 	}
+	// log.Println("TODO: Implement creating file across chunk servers.")
+
+	// At this point, file is created in the shared directory and all chunk servers are allocated
 
 	s.Files[path] = chunks
 	return &protos.Ack{Message: fmt.Sprintf("successfuly created file at path %s", path)}, nil
 }
+
+func (s *MasterServer) RemoveFile(ctx context.Context, removeReq *protos.FileRemoveRequest) (*protos.Ack, error) {	
+	path := removeReq.Path
+	e := os.Remove(path)
+	if e != nil {
+		log.Fatal("couldn't Delete File \n")
+	}
+	log.Println("TODO: Implement deleting file across chunk servers.")
+ 	//TO:DO We also have to remove the file meta data from the in-memory structures on the master
+
+	return &protos.Ack{Message: fmt.Sprintf("successfuly deleted file at path %s", path)}, nil
+}
+
 
 // Generate a unique chunkhandle.
 func (s *MasterServer) generateChunkHandle() uint64 {

@@ -22,7 +22,7 @@ message ReadReply {
 
 // The request message containing the arguments to a read request.
 message ReadRequest {
-  int64 ch = 1;
+  uint64 ch = 1;
   int32 l = 2;
   int32 r = 3;
 }
