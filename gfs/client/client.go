@@ -102,6 +102,8 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 	}
 
 	chunkSize := getSystemChunkSizeReply.Size;
+
+	// iterate from chunkStart to chunkStart + len(data) and update chunkIdx
  	chunkIdx := int32(offset/chunkSize);
 
 	getChunkLocationReply, err := masterClient.GetChunkLocation(context.Background(), &protos.ChunkLocationRequest{Path: path, ChunkIdx: chunkIdx})
@@ -110,6 +112,8 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 		return -1;
 	}
 	log.Println(getChunkLocationReply);
+
+	// create new chunks if needed
 
 	chunkLocations := getChunkLocationReply.ChunkServerIds
 	chunkHandle := getChunkLocationReply.ChunkHandle
@@ -129,6 +133,16 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 	// Here, we can pass the secondaryChunkServerAddr over the RPC so primaryCS can relay the writeReq to secondaries. 
 	// The RPC can check for nil secondaryChunkServerAddr. If nil, don't relay bc we are in the case of secondary. If !- nil, relay bc it is primary.
 	// That way, we can just use 1 single chunkServerWrite RPC handler.
+
+	/** 
+		
+	primaryChunkServerClient.ReceiveWriteData(context.background(), &protos.WriteDataBundle{Data: data, Size: len(data), Ch: chunkHandle});
+
+	
+	
+	
+	*/
+
 
 	return 0;
 }
