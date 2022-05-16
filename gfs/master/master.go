@@ -36,15 +36,9 @@ func InitMasterServer(mAddr string, numChunkServers int, chunkServerPortBase int
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	s := &services.MasterServer{
-		ChunkServerClients: make(map[string]cs.ChunkServerClient),
-		Files:              make(map[string][]uint64),
-		Chunks:             make(map[uint64][]string)}
-
+	s := services.NewMasterServer()
 	grpcServer := grpc.NewServer()
-
 	protos.RegisterMasterServer(grpcServer, s)
-
 	chunkserver_chan := make(chan ChunkServerConfig)
 
 	// Serve Master Routine

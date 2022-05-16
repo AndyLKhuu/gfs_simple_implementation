@@ -6,6 +6,7 @@ import (
 	"gfs/master"
 	"gfs/client"
 	"log"
+	"os"
 	"time"
 )
 
@@ -16,6 +17,10 @@ var NUM_CLIENTS = 1
 var shared_file_path = "../temp_dfs_storage/shared/"
 
 func main() {
+	if err := os.MkdirAll("../temp_dfs_storage", os.ModePerm); err != nil {
+		log.Fatal(err)
+	}
+
 	// Start up Master Server
 	go master.InitMasterServer(masterServerPort, NUM_CHUNK_SERVERS, chunkServerPortBase)
 

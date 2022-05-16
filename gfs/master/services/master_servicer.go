@@ -16,9 +16,16 @@ type MasterServer struct {
 	ChunkServerClients map[string]cs.ChunkServerClient
 	Files              map[string][]uint64 // Files to ChunkHandles
 	Chunks             map[uint64][]string // ChunkHandles to Replica Locations
+	chunkHandleSet     map[uint64]bool     // Set of used chunkhandles
 }
 
-// TO:DO There should be an init function for the Master Server
+func NewMasterServer() *MasterServer {
+	return &MasterServer{
+		ChunkServerClients: make(map[string]cs.ChunkServerClient),
+		Files:              make(map[string][]uint64),
+		Chunks:             make(map[uint64][]string),
+		chunkHandleSet:     make(map[uint64]bool)}
+}
 
 func (s *MasterServer) SendHeartBeatMessage(ctx context.Context, cid *protos.ChunkServerID) (*protos.Ack, error) {
 	return &protos.Ack{}, nil
@@ -51,9 +58,7 @@ func (s *MasterServer) CreateFile(ctx context.Context, createReq *protos.FileCre
 		return &protos.Ack{Message: fmt.Sprintf("failed to create file at path %s", path)}, e
 	}
 
-	// Generate random chunk handle
-	// TO:DO Ensure that chunkhandles are unique
-	ch := rand.Uint64()
+	ch := s.generateChunkHandle()
 	fmt.Printf("created chunk with chunk handle %d \n", ch)
 	chunks := append(s.Files[path], ch)
 
@@ -96,3 +101,12 @@ func (s *MasterServer) RemoveFile(ctx context.Context, removeReq *protos.FileRem
 }
 
 
+// Generate a unique chunkhandle.
+func (s *MasterServer) generateChunkHandle() uint64 {
+	ch := rand.Uint64()
+	for s.chunkHandleSet[ch] {
+		ch = rand.Uint64()
+	}
+	s.chunkHandleSet[ch] = true
+	return ch
+}

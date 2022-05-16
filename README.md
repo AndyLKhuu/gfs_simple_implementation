@@ -2,7 +2,6 @@
 
 # TO:DO 
 - Explore using Bazel
-- Move from fmt.println -> log.printf()
 - Add more complex synchronization mechanism to check for completion of Master/Chunkserver Initialization
 - Security
 - Better variable/function naming
@@ -13,6 +12,5 @@
 - Clean up communication set up calls, maybe it's too many nested goroutines
 - Add a flag which supresses log calls (different levels of logs perhaps?)
 - Fix Subtle Bug where if the number of successful Chunkservers is < NUMCHUNKSERVERS, then the error is properly handled
-- Delete helloWorld Example
-
-
+- Optimize generateChunkHandle() such that it is resilience and deterministic under heavy load.
+- Add function to cleanly and safely destruct everything. (memory, files, etc)
