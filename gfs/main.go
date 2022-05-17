@@ -1,17 +1,13 @@
 package main
 
 import (
-
 	"fmt"
-	// "context"
 	"gfs/chunkserver"
 	"gfs/master"
-	// "gfs/master/protos"
 	"gfs/client"
 	"log"
+	"os"
 	"time"
-
-	// "google.golang.org/grpc"
 )
 
 var masterServerPort = ":9000"
@@ -21,6 +17,10 @@ var NUM_CLIENTS = 1
 var shared_file_path = "../temp_dfs_storage/shared/"
 
 func main() {
+	if err := os.MkdirAll("../temp_dfs_storage", os.ModePerm); err != nil {
+		log.Fatal(err)
+	}
+
 	// Start up Master Server
 	go master.InitMasterServer(masterServerPort, NUM_CHUNK_SERVERS, chunkServerPortBase)
 
