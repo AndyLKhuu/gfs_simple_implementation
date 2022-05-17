@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	cs "gfs/chunkserver/protos"
-	"gfs/master/lock_manager"
+	lm "gfs/master/lease_manager"
 	"gfs/master/protos"
 	"log"
 	"math/rand"
@@ -15,10 +15,10 @@ import (
 type MasterServer struct {
 	protos.UnimplementedMasterServer
 	ChunkServerClients map[string]cs.ChunkServerClient
-	Files              map[string][]uint64       // Files to ChunkHandles
-	Chunks             map[uint64][]string       // ChunkHandles to Replica Locations
-	lockManager        lock_manager.LeaseManager // Lock Manager for Master
-	chunkHandleSet     map[uint64]bool           // Set of used chunkhandles
+	Files              map[string][]uint64 // Files to ChunkHandles
+	Chunks             map[uint64][]string // ChunkHandles to Replica Locations
+	leaseManager       lm.LeaseManager     // Lock Manager for Master
+	chunkHandleSet     map[uint64]bool     // Set of used chunkhandles
 }
 
 func NewMasterServer() *MasterServer {
@@ -27,7 +27,7 @@ func NewMasterServer() *MasterServer {
 		Files:              make(map[string][]uint64),
 		Chunks:             make(map[uint64][]string),
 		chunkHandleSet:     make(map[uint64]bool),
-		lockManager:        lock_manager.LeaseManager{}}
+		leaseManager:       lm.LeaseManager{}}
 }
 
 func (s *MasterServer) SendHeartBeatMessage(ctx context.Context, cid *protos.ChunkServerID) (*protos.Ack, error) {
@@ -36,6 +36,8 @@ func (s *MasterServer) SendHeartBeatMessage(ctx context.Context, cid *protos.Chu
 
 // TODO: Rename to get chunkLocation for more accurate description
 func (s *MasterServer) GetChunkLocation(ctx context.Context, chunkLocReq *protos.ChunkLocationRequest) (*protos.ChunkLocationReply, error) {
+	// TO:DO Give lease to one of the chunkservers.
+
 	path := chunkLocReq.Path
 	chunkIdx := chunkLocReq.ChunkIdx
 	chunkHandle := s.Files[path][chunkIdx]
@@ -102,6 +104,12 @@ func (s *MasterServer) RemoveFile(ctx context.Context, removeReq *protos.FileRem
 	//TO:DO We also have to remove the file meta data from the in-memory structures on the master
 
 	return &protos.Ack{Message: fmt.Sprintf("successfuly deleted file at path %s", path)}, nil
+}
+
+func (s *MasterServer) RenewChunkLease(ctx context.Context, ch *protos.ChunkHandle) (*protos.Ack, error) {
+	// TO:DO Renew Lease
+
+	return &protos.Ack{Message: fmt.Sprintf("successfully renewed lease for chunk %d", ch.Ch)}, nil
 }
 
 // Generate a unique chunkhandle.

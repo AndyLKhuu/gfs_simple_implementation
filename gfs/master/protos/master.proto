@@ -11,13 +11,12 @@ service Master {
   rpc GetSystemChunkSize(SystemChunkSizeRequest) returns (ChunkSize) {}
   // ClientWriteRequest
   rpc ReceiveClientWriteRequest(ClientWriteRequest) returns (Ack) {} 
-
-  // CreateFile 
+  // Create a file.
   rpc CreateFile(FileCreateRequest) returns (Ack) {}
-
-  // RemoveFile
+  // Remove a file.
   rpc RemoveFile(FileRemoveRequest) returns (Ack) {}
-
+  // Renew lease on chunk.
+  rpc RenewChunkLease(ChunkHandle) returns (Ack) {}
 }
 
 message FileCreateRequest {
@@ -27,6 +26,10 @@ message FileCreateRequest {
 
 message FileRemoveRequest {
   string path = 1;
+}
+
+message ChunkHandle {
+  uint64 ch = 1;
 }
 
 // The request message containing the user's name.
