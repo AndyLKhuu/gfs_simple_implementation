@@ -97,8 +97,6 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 	}
 
 	chunkSize := getSystemChunkSizeReply.Size;
-
-	// iterate from chunkStart to chunkStart + len(data) and update chunkIdx
  	chunkIdx := int32(offset/chunkSize);
 
 	getChunkLocationReply, err := masterClient.GetChunkLocation(context.Background(), &protos.ChunkLocationRequest{Path: path, ChunkIdx: chunkIdx})
@@ -106,8 +104,6 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 		log.Printf("error when calling GetChunkLocation: %s", err);
 		return -1;
 	}
-
-	// create new chunks if needed
 
 	chunkLocations := getChunkLocationReply.ChunkServerIds
 	chunkHandle := getChunkLocationReply.ChunkHandle
@@ -121,24 +117,30 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 	}
 
 	primaryChunkServerClient := cs.NewChunkServerClient(conn);
-	log.Printf("Client connected to chunk server: %s", primaryChunkServerClient);
+
+	// log.Printf("Client connected to chunk server: %s", primaryChunkServerClient);
 	log.Printf("TODO: build and invoke chunkserverWriteRPC(chunkHandle, byteRange) => chunkData") 
 
- 	//TO:DO We also have to remove the file meta data from the in-memory structures on the master
+	// TODO: break into sending increments of ChunkSize segments of data rather than 1 shot. 
+
+	ReceiveWriteDataReply, err := primaryChunkServerClient.ReceiveWriteData(context.Background(), 
+		&cs.WriteDataBundle{Data: data, Size: int64(len(data)), Ch: chunkHandle, ChunkServers: chunkLocations})
+	if err != nil {
+		log.Printf("error when client sending write data to chunk server: %s", err)
+		return -1
+	}
+
+
+	log.Println(ReceiveWriteDataReply)
+	log.Println("Should be successful write at this point");
+
+
+	
+
 	
 	 // Here, we can pass the secondaryChunkServerAddr over the RPC so primaryCS can relay the writeReq to secondaries. 
 	// The RPC can check for nil secondaryChunkServerAddr. If nil, don't relay bc we are in the case of secondary. If !- nil, relay bc it is primary.
 	// That way, we can just use 1 single chunkServerWrite RPC handler.
-
-	/** 
-		
-	primaryChunkServerClient.ReceiveWriteData(context.background(), &protos.WriteDataBundle{Data: data, Size: len(data), Ch: chunkHandle});
-
-	
-	
-	
-	*/
-
 
 	return 0;
 }

@@ -44,12 +44,12 @@ func main() {
 
 
 			// e2e simple read test.
-			readBuffer := make([]byte, 7)
-			c.Read(fname, 0, readBuffer);
-			log.Printf("Successful read result: %s", string(readBuffer))
+			// readBuffer := make([]byte, 7)
+			// c.Read(fname, 0, readBuffer);
+			// log.Printf("Successful read result: %s", string(readBuffer))
 
-			// var str = "hello";
-			// c.Write(fname, 0, []byte(str));
+			var str = "hello";
+			c.Write(fname, 0, []byte(str));
 			// c.Remove(fname); // careful using this when implementing chunk server repl.
 		}()
 	}
