@@ -96,51 +96,73 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 		return -1
 	}
 
-	chunkSize := getSystemChunkSizeReply.Size;
- 	chunkIdx := int32(offset/chunkSize);
 
-	getChunkLocationReply, err := masterClient.GetChunkLocation(context.Background(), &protos.ChunkLocationRequest{Path: path, ChunkIdx: chunkIdx})
-	if err != nil {
-		log.Printf("error when calling GetChunkLocation: %s", err);
-		return -1;
-	}
+	totalBytesToWrite := len(data)
+	log.Printf("number of bytes to write: %d", totalBytesToWrite)
 
-	chunkLocations := getChunkLocationReply.ChunkServerIds
-	chunkHandle := getChunkLocationReply.ChunkHandle
-	log.Printf("Obtained (chunkLocations, chunkHandle): (%d, %d)", chunkLocations, chunkHandle)
-
-	primaryChunkServerAddr := chunkLocations[0];
-	conn, err := grpc.Dial(primaryChunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure()) // connecting to chunk server
-	if err != nil {
-		log.Printf("error when client connecting to chunk server: %s", err)
-		return -1
-	}
-
-	primaryChunkServerClient := cs.NewChunkServerClient(conn);
-
-	// log.Printf("Client connected to chunk server: %s", primaryChunkServerClient);
-	log.Printf("TODO: build and invoke chunkserverWriteRPC(chunkHandle, byteRange) => chunkData") 
-
-	// TODO: break into sending increments of ChunkSize segments of data rather than 1 shot. 
-
-	ReceiveWriteDataReply, err := primaryChunkServerClient.ReceiveWriteData(context.Background(), 
-		&cs.WriteDataBundle{Data: data, Size: int64(len(data)), Ch: chunkHandle, ChunkServers: chunkLocations})
-	if err != nil {
-		log.Printf("error when client sending write data to chunk server: %s", err)
-		return -1
-	}
+	chunkSize := getSystemChunkSizeReply.Size; // for testing, treat this as number of bytes 
 
 
-	log.Println(ReceiveWriteDataReply)
-	log.Println("Should be successful write at this point");
+
+	// for dataOffset := 0; dataOffset < len(data) {
+
+		chunkIdx := int32(offset/chunkSize);
+	// 	chunkOffset := dataOffset % chunkSize
+		
+		
+	// 	nBytesToWrite := min 
+
+		getChunkLocationReply, err := masterClient.GetChunkLocation(context.Background(), &protos.ChunkLocationRequest{Path: path, ChunkIdx: chunkIdx})
+		if err != nil {
+			log.Printf("error when calling GetChunkLocation: %s", err);
+			return -1;
+		}
+
+		chunkLocations := getChunkLocationReply.ChunkServerIds
+		chunkHandle := getChunkLocationReply.ChunkHandle
+
+		// Client pushses data to all replicas 
+		replicaReceiveStatus := make([]bool, len(chunkLocations))
+		for i := 0; i < len(chunkLocations); i++ { // Should we async this instead of sequential?
+			chunkServerAddr := chunkLocations[i]
+			conn, err := grpc.Dial(chunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure())
+			defer conn.Close()
+			if err != nil {
+				log.Printf("error when client connecting to chunk server: %s", err)
+				replicaReceiveStatus[i] = false
+				continue
+			}
+			chunkServerClient := cs.NewChunkServerClient(conn);
+			_, err = chunkServerClient.ReceiveWriteData(context.Background(), 
+				&cs.WriteDataBundle{Data: data, Size: int64(len(data)), Ch: chunkHandle}) // TODO: chunkify
+			if err != nil {
+				log.Printf("error when client sending write data to chunk server: %s", err)
+				replicaReceiveStatus[i] = false
+				continue
+			}
+			replicaReceiveStatus[i] = true
+		}
+		// Do we need to resend writeData to failed nodes? 
+
+		// Client tells primary to commit 
+		primaryChunkServerAddr := chunkLocations[0]	
+		conn, err := grpc.Dial(primaryChunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure())
+		defer conn.Close()
+		if err != nil {
+			log.Printf("error when client connecting to primary chunk server: %s", err)
+			return -1
+		}
+		primaryChunkServerClient := cs.NewChunkServerClient(conn);
+		_, err = primaryChunkServerClient.PrimaryCommitMutate(context.Background(), 
+			&cs.PrimaryCommitMutateRequest{Ch: chunkHandle, SecondaryChunkServerAddresses: chunkLocations[1:]})
 
 
-	
 
-	
-	 // Here, we can pass the secondaryChunkServerAddr over the RPC so primaryCS can relay the writeReq to secondaries. 
-	// The RPC can check for nil secondaryChunkServerAddr. If nil, don't relay bc we are in the case of secondary. If !- nil, relay bc it is primary.
-	// That way, we can just use 1 single chunkServerWrite RPC handler.
+	// 	dataOffset += 64 // TODO
+		
+	// }
+
+
 
 	return 0;
 }

@@ -32,7 +32,8 @@ func InitChunkServer(csAddr int) {
 	s := services.ChunkServer{
 		ChunkHandleToFile: make(map[uint64]string),
 		Rootpath:          chunkserverRootDir,
-		Address:           strconv.Itoa(csAddr)}
+		Address:           strconv.Itoa(csAddr),
+		WriteCache: 			 make(map[uint64]*protos.WriteDataBundle)}
 
 	grpcServer := grpc.NewServer()
 
