@@ -73,7 +73,9 @@ func (s *ChunkServer) PrimaryCommitMutate(ctx context.Context, primaryCommitMuta
 		return &protos.Ack{}, status.Errorf(codes.InvalidArgument, "Error opening file to write in primaryCS") // change
 	}
 	data := s.WriteCache[chunkHandle].Data
-	file.WriteAt(data, 0) // Todo: change offset 
+	offset :=  s.WriteCache[chunkHandle].Offset
+
+	file.WriteAt(data, offset) // Todo: change offset 
 	delete(s.WriteCache, chunkHandle)
 	file.Close()
 	return &protos.Ack{}, nil
@@ -87,7 +89,8 @@ func (s *ChunkServer) SecondaryCommitMutate(ctx context.Context, ch *protos.Chun
 		return &protos.Ack{}, status.Errorf(codes.InvalidArgument, "Error opening file to write in secondaryCS") // change
 	}
 	data := s.WriteCache[chunkHandle].Data
-	file.WriteAt(data, 0) // Todo: change offset 
+	offset := s.WriteCache[chunkHandle].Offset
+	file.WriteAt(data, offset) // Todo: change offset 
 	delete(s.WriteCache, chunkHandle)
 	file.Close()
 	return &protos.Ack{}, nil

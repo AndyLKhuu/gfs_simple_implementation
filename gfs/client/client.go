@@ -106,13 +106,14 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 	// offset is fi
 	totalBytesWritten := int64(0)
 	remainingBytesToWrite := int64(len(data))
-	for dataOffset := int64(0); dataOffset < int64(len(data)); {
+	for dataOffset := offset + int64(0); dataOffset < offset + int64(len(data)); {
 		// log.Printf("Here AA")
 
 		chunkIdx := int32(dataOffset/chunkSize)
 		chunkOffset := int64(dataOffset) % chunkSize
 		remainingChunkSpace := chunkSize - chunkOffset
 		
+		log.Printf("cOf: %s", chunkOffset)
 		
 		// Calculate max number of bytes to write 
 		nBytesToWrite := chunkSize
@@ -148,7 +149,7 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 			}
 			chunkServerClient := cs.NewChunkServerClient(conn);
 			_, err = chunkServerClient.ReceiveWriteData(context.Background(), 
-				&cs.WriteDataBundle{Data: data[dataOffset:dataOffset + nBytesToWrite], Size: nBytesToWrite, Ch: chunkHandle}) // TODO: chunkify
+				&cs.WriteDataBundle{Data: data[totalBytesWritten:totalBytesWritten + nBytesToWrite], Size: nBytesToWrite, Ch: chunkHandle, Offset: chunkOffset}) // TODO: chunkify
 			if err != nil {
 				log.Printf("error when client sending write data to chunk server: %s", err)
 				replicaReceiveStatus[i] = false
@@ -178,12 +179,10 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 
 		// log.Printf("Here C")
 
-		dataOffset += nBytesToWrite // TODO
+		dataOffset += nBytesToWrite 
 		remainingBytesToWrite -= nBytesToWrite
 		totalBytesWritten += nBytesToWrite
 	}
-
-
 
 	return int(totalBytesWritten)
 }
