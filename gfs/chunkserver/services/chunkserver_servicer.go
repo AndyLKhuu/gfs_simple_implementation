@@ -47,7 +47,7 @@ func (s *ChunkServer) ReceiveWriteData(ctx context.Context, writeBundle *protos.
 func (s *ChunkServer) PrimaryCommitMutate(ctx context.Context, primaryCommitMutateRequest *protos.PrimaryCommitMutateRequest) (*protos.Ack, error) {
 	chunkHandle := primaryCommitMutateRequest.Ch
 	secondaryChunkServerAddresses := primaryCommitMutateRequest.SecondaryChunkServerAddresses
-	log.Println(secondaryChunkServerAddresses);
+	// log.Println(secondaryChunkServerAddresses);
 	for i := 0; i < len(secondaryChunkServerAddresses); i++ { // Should we async this instead of sequential?
 		secondaryChunkServerAddr := secondaryChunkServerAddresses[i]
 		conn, err := grpc.Dial(secondaryChunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure()) // connecting to secondary chunk server
@@ -95,7 +95,7 @@ func (s *ChunkServer) SecondaryCommitMutate(ctx context.Context, ch *protos.Chun
 
 func (s *ChunkServer) CreateNewChunk(ctx context.Context, ch *protos.ChunkHandle) (*protos.Ack, error) {
 	chunkHandle := ch.Ch
-	filepath := s.Rootpath + "/" + strconv.Itoa(int(chunkHandle))
+	filepath := s.Rootpath + "/" + strconv.FormatUint(uint64(chunkHandle), 10)
 
 	_, err := os.Create(filepath)
 	if err != nil {

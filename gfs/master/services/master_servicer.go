@@ -31,13 +31,18 @@ func (s *MasterServer) SendHeartBeatMessage(ctx context.Context, cid *protos.Chu
 	return &protos.Ack{}, nil
 }
 
-// TODO: Rename to get chunkLocation for more accurate description
 func (s *MasterServer) GetChunkLocation(ctx context.Context, chunkLocReq *protos.ChunkLocationRequest) (*protos.ChunkLocationReply, error) {
 	path := chunkLocReq.Path
 	chunkIdx := chunkLocReq.ChunkIdx;
-	chunkHandle := s.Files[path][chunkIdx]
+
+	// Generate new chunks up to the chunkIdx we want. Question: do we want our FS to support files with gaps?
+	for (int32(len(s.Files[path])) < chunkIdx + 1) {
+		s.createNewChunk(path)
+	}
+	chunkHandle := s.Files[path][chunkIdx] 
 	chunkServerIds := s.Chunks[chunkHandle]
-	return &protos.ChunkLocationReply{ChunkHandle: chunkHandle, ChunkServerIds: chunkServerIds}, nil // TODO fix hard coded values 
+
+	return &protos.ChunkLocationReply{ChunkHandle: chunkHandle, ChunkServerIds: chunkServerIds}, nil 
 }
 
 func (s *MasterServer) GetSystemChunkSize(ctx context.Context, sysChunkSizeReq *protos.SystemChunkSizeRequest) (*protos.ChunkSize, error) {
@@ -60,32 +65,18 @@ func (s *MasterServer) CreateFile(ctx context.Context, createReq *protos.FileCre
 
 	ch := s.generateChunkHandle()
 	fmt.Printf("created chunk with chunk handle %d \n", ch)
-	chunks := append(s.Files[path], ch)
 
-	// Replicate empty chunks
 	numChunkServers := len(s.ChunkServerClients)
-	// TO:DO Have better replication factor check (> n/2?)
+	// TO:DO Have better replication factor check (> n/2?) // I feel like this should be a boot up checker and doesnt need to be performed every time we create a file. 
 	if int(repFactor) > numChunkServers || repFactor < 1 {
 		return &protos.Ack{Message: "Replication Factor is Invalid"}, errors.New("Invalid Replication Factor Value")
 	}
 
-	// Choose REPFACTOR servers
-	// TO:DO Choose replication servers to maximize throughoupt and ensure load balancing
-	for k, v := range s.ChunkServerClients {
-		res, err := v.CreateNewChunk(context.Background(), &cs.ChunkHandle{Ch: ch})
-		if err != nil {
-			s.Chunks[ch] = []string{}
-			return &protos.Ack{Message: fmt.Sprintf("failed to create file at path %s", path)}, err
-		}
-		log.Printf(res.Msg)
-
-		s.Chunks[ch] = append(s.Chunks[ch], k)
+	createNewChunkStatus := s.createNewChunk(path);
+	if (createNewChunkStatus == -1) {
+		return &protos.Ack{Message: "Error creating new chunk"}, errors.New("Error creating new chunk")
 	}
-	// log.Println("TODO: Implement creating file across chunk servers.")
 
-	// At this point, file is created in the shared directory and all chunk servers are allocated
-
-	s.Files[path] = chunks
 	return &protos.Ack{Message: fmt.Sprintf("successfuly created file at path %s", path)}, nil
 }
 
@@ -101,7 +92,6 @@ func (s *MasterServer) RemoveFile(ctx context.Context, removeReq *protos.FileRem
 	return &protos.Ack{Message: fmt.Sprintf("successfuly deleted file at path %s", path)}, nil
 }
 
-
 // Generate a unique chunkhandle.
 func (s *MasterServer) generateChunkHandle() uint64 {
 	ch := rand.Uint64()
@@ -111,3 +101,24 @@ func (s *MasterServer) generateChunkHandle() uint64 {
 	s.chunkHandleSet[ch] = true
 	return ch
 }
+
+func (s *MasterServer) createNewChunk(path string)  int {
+	ch := s.generateChunkHandle()
+	fmt.Printf("created chunk with chunk handle %d \n", ch)
+	chunks := append(s.Files[path], ch)
+	// Choose REPFACTOR servers
+	// TO:DO Choose replication servers to maximize throughoupt and ensure load balancing
+	for k, v := range s.ChunkServerClients {
+		res, err := v.CreateNewChunk(context.Background(), &cs.ChunkHandle{Ch: ch})
+		if err != nil {
+			s.Chunks[ch] = []string{}
+			return -1
+		}
+		log.Printf(res.Msg)
+
+		s.Chunks[ch] = append(s.Chunks[ch], k)
+	}
+	s.Files[path] = chunks
+	return 0
+}
+

@@ -7,6 +7,7 @@ import (
 	cs "gfs/chunkserver/protos"
 	"time"
 	"math/rand"
+	// "math"
 	"google.golang.org/grpc"
 )
 
@@ -102,15 +103,27 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 
 	chunkSize := getSystemChunkSizeReply.Size; // for testing, treat this as number of bytes 
 
+	// offset is fi
+	totalBytesWritten := int64(0)
+	remainingBytesToWrite := int64(len(data))
+	for dataOffset := int64(0); dataOffset < int64(len(data)); {
+		// log.Printf("Here AA")
 
-
-	// for dataOffset := 0; dataOffset < len(data) {
-
-		chunkIdx := int32(offset/chunkSize);
-	// 	chunkOffset := dataOffset % chunkSize
+		chunkIdx := int32(dataOffset/chunkSize)
+		chunkOffset := int64(dataOffset) % chunkSize
+		remainingChunkSpace := chunkSize - chunkOffset
 		
 		
-	// 	nBytesToWrite := min 
+		// Calculate max number of bytes to write 
+		nBytesToWrite := chunkSize
+		if remainingChunkSpace < nBytesToWrite {
+			nBytesToWrite = remainingChunkSpace
+		}
+		if remainingBytesToWrite < nBytesToWrite {
+			nBytesToWrite = remainingBytesToWrite
+		}
+
+		// log.Printf("Here AAA")
 
 		getChunkLocationReply, err := masterClient.GetChunkLocation(context.Background(), &protos.ChunkLocationRequest{Path: path, ChunkIdx: chunkIdx})
 		if err != nil {
@@ -118,6 +131,7 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 			return -1;
 		}
 
+		// log.Printf("Here A")
 		chunkLocations := getChunkLocationReply.ChunkServerIds
 		chunkHandle := getChunkLocationReply.ChunkHandle
 
@@ -126,7 +140,7 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 		for i := 0; i < len(chunkLocations); i++ { // Should we async this instead of sequential?
 			chunkServerAddr := chunkLocations[i]
 			conn, err := grpc.Dial(chunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure())
-			defer conn.Close()
+			// defer conn.Close()
 			if err != nil {
 				log.Printf("error when client connecting to chunk server: %s", err)
 				replicaReceiveStatus[i] = false
@@ -134,20 +148,24 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 			}
 			chunkServerClient := cs.NewChunkServerClient(conn);
 			_, err = chunkServerClient.ReceiveWriteData(context.Background(), 
-				&cs.WriteDataBundle{Data: data, Size: int64(len(data)), Ch: chunkHandle}) // TODO: chunkify
+				&cs.WriteDataBundle{Data: data[dataOffset:dataOffset + nBytesToWrite], Size: nBytesToWrite, Ch: chunkHandle}) // TODO: chunkify
 			if err != nil {
 				log.Printf("error when client sending write data to chunk server: %s", err)
 				replicaReceiveStatus[i] = false
 				continue
 			}
 			replicaReceiveStatus[i] = true
+			conn.Close()
 		}
+
+		// log.Printf("Here B")
+
 		// Do we need to resend writeData to failed nodes? 
 
 		// Client tells primary to commit 
 		primaryChunkServerAddr := chunkLocations[0]	
 		conn, err := grpc.Dial(primaryChunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure())
-		defer conn.Close()
+		// defer conn.Close()
 		if err != nil {
 			log.Printf("error when client connecting to primary chunk server: %s", err)
 			return -1
@@ -156,13 +174,16 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 		_, err = primaryChunkServerClient.PrimaryCommitMutate(context.Background(), 
 			&cs.PrimaryCommitMutateRequest{Ch: chunkHandle, SecondaryChunkServerAddresses: chunkLocations[1:]})
 
+		conn.Close()
+
+		// log.Printf("Here C")
+
+		dataOffset += nBytesToWrite // TODO
+		remainingBytesToWrite -= nBytesToWrite
+		totalBytesWritten += nBytesToWrite
+	}
 
 
-	// 	dataOffset += 64 // TODO
-		
-	// }
 
-
-
-	return 0;
+	return int(totalBytesWritten)
 }
