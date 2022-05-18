@@ -3,18 +3,13 @@ package services
 import (
 	"context"
 	"gfs/chunkserver/protos"
-	// cs "gfs/chunkserver/protos"
-
 	"log"
 	"os"
-	// "sync"
 	"strconv"
 	"time"
-	// "fmt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc"
-
 )
 
 // TO:DO Find better naming than ch for chunkhandle messages
@@ -26,28 +21,23 @@ type ChunkServer struct {
 	ChunkHandleToFile map[uint64]string // Chunkhandle to filepath of chunk
 	Rootpath          string            // Root directory path for chunkserver
 	Address           string            // Address of chunkserver
-	WriteCache 				map[uint64]*protos.WriteDataBundle
+	WriteCache 				map[uint64]*protos.WriteDataBundle // Internal "LRU" 
 }
-
-// TO:DO There should be an init function for the ChunkServer Struct
 
 func (s *ChunkServer) Read(ctx context.Context, readReq *protos.ReadRequest) (*protos.ReadReply, error) {
 	return &protos.ReadReply{Data: "chicken"}, nil
 }
 
 func (s *ChunkServer) ReceiveWriteData(ctx context.Context, writeBundle *protos.WriteDataBundle) (*protos.Ack, error) {
-
 	// ChunkServer stores write data in internal LRU
 	chunkHandle := writeBundle.Ch
 	s.WriteCache[chunkHandle] = writeBundle
-
 	return &protos.Ack{}, nil
 }
 
 func (s *ChunkServer) PrimaryCommitMutate(ctx context.Context, primaryCommitMutateRequest *protos.PrimaryCommitMutateRequest) (*protos.Ack, error) {
 	chunkHandle := primaryCommitMutateRequest.Ch
 	secondaryChunkServerAddresses := primaryCommitMutateRequest.SecondaryChunkServerAddresses
-	// log.Println(secondaryChunkServerAddresses);
 	for i := 0; i < len(secondaryChunkServerAddresses); i++ { // Should we async this instead of sequential?
 		secondaryChunkServerAddr := secondaryChunkServerAddresses[i]
 		conn, err := grpc.Dial(secondaryChunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure()) // connecting to secondary chunk server
@@ -64,18 +54,19 @@ func (s *ChunkServer) PrimaryCommitMutate(ctx context.Context, primaryCommitMuta
 			log.Printf("error occured on secondaryCommitMutate %s", err)
 			return &protos.Ack{}, status.Errorf(codes.Unavailable, "error occured on secondaryCommitMutate")
 		}
+		// TODO: If there is an error, do we want to roll back the secondary's commit?
 	}
 
 	// Primary commits 
 	path := chunkServerTempDirectoryPath + s.Address + "/" + strconv.FormatUint(chunkHandle, 10)
 	file, err := os.OpenFile(path, os.O_WRONLY, 0644) 
 	if err != nil {
-		return &protos.Ack{}, status.Errorf(codes.InvalidArgument, "Error opening file to write in primaryCS") // change
+		return &protos.Ack{}, status.Errorf(codes.InvalidArgument, "Error opening file to write in primaryCS")
 	}
 	data := s.WriteCache[chunkHandle].Data
 	offset :=  s.WriteCache[chunkHandle].Offset
 
-	file.WriteAt(data, offset) // Todo: change offset 
+	file.WriteAt(data, offset)
 	delete(s.WriteCache, chunkHandle)
 	file.Close()
 	return &protos.Ack{}, nil
@@ -90,7 +81,7 @@ func (s *ChunkServer) SecondaryCommitMutate(ctx context.Context, ch *protos.Chun
 	}
 	data := s.WriteCache[chunkHandle].Data
 	offset := s.WriteCache[chunkHandle].Offset
-	file.WriteAt(data, offset) // Todo: change offset 
+	file.WriteAt(data, offset)
 	delete(s.WriteCache, chunkHandle)
 	file.Close()
 	return &protos.Ack{}, nil

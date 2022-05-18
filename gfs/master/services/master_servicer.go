@@ -63,8 +63,7 @@ func (s *MasterServer) CreateFile(ctx context.Context, createReq *protos.FileCre
 		return &protos.Ack{Message: fmt.Sprintf("failed to create file at path %s", path)}, e
 	}
 
-	ch := s.generateChunkHandle()
-	fmt.Printf("created chunk with chunk handle %d \n", ch)
+	// ch := s.generateChunkHandle()
 
 	numChunkServers := len(s.ChunkServerClients)
 	// TO:DO Have better replication factor check (> n/2?) // I feel like this should be a boot up checker and doesnt need to be performed every time we create a file. 
@@ -104,7 +103,6 @@ func (s *MasterServer) generateChunkHandle() uint64 {
 
 func (s *MasterServer) createNewChunk(path string)  int {
 	ch := s.generateChunkHandle()
-	fmt.Printf("created chunk with chunk handle %d \n", ch)
 	chunks := append(s.Files[path], ch)
 	// Choose REPFACTOR servers
 	// TO:DO Choose replication servers to maximize throughoupt and ensure load balancing
