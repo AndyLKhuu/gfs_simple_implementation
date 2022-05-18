@@ -14,7 +14,7 @@ service ChunkServer {
   // Creates a new chunk.
   rpc CreateNewChunk(ChunkHandle) returns (Ack) {}
   // Receive a lease for a chunk
-  rpc ReceiveLease()
+  rpc ReceiveLease(LeaseBundle) returns (Ack) {}
 }
 
 // The reply message containing the data from a file read.
@@ -48,6 +48,7 @@ message WriteDataBundle {
 
 // A request message containing a lease for a chunk
 message LeaseBundle {
-  
+  uint64 ch = 1;
+  int64 timeEnd = 2;
 }
 

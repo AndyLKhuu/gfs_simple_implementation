@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"gfs/chunkserver/protos"
 	"log"
 	"os"
@@ -48,4 +49,8 @@ func (s *ChunkServer) CreateNewChunk(ctx context.Context, ch *protos.ChunkHandle
 	s.ChunkHandleToFile[chunkHandle] = filepath
 
 	return &protos.Ack{Msg: "successfully replicated chunk on " + s.Address}, nil
+}
+
+func (s *ChunkServer) ReceiveLease(ctx context.Context, l *protos.LeaseBundle) (*protos.Ack, error) {
+	return &protos.Ack{Msg: fmt.Sprintf("successfully received lease for chunk %d", l.Ch)}, nil
 }
