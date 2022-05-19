@@ -11,13 +11,12 @@ service Master {
   rpc GetSystemChunkSize(SystemChunkSizeRequest) returns (ChunkSize) {}
   // ClientWriteRequest
   rpc ReceiveClientWriteRequest(ClientWriteRequest) returns (Ack) {} 
-
-  // CreateFile 
+  // Create a file.
   rpc CreateFile(FileCreateRequest) returns (Ack) {}
-
-  // RemoveFile
+  // Remove a file.
   rpc RemoveFile(FileRemoveRequest) returns (Ack) {}
-
+  // Renew lease on chunk.
+  rpc RenewChunkLease(RenewChunkLeaseRequest) returns (Ack) {}
 }
 
 message FileCreateRequest {
@@ -27,6 +26,15 @@ message FileCreateRequest {
 
 message FileRemoveRequest {
   string path = 1;
+}
+
+message ChunkHandle {
+  uint64 ch = 1;
+}
+
+message RenewChunkLeaseRequest {
+  uint64 ch = 1;
+  string addr = 2;
 }
 
 // The request message containing the user's name.
@@ -52,9 +60,11 @@ message ChunkLocationRequest {
 }
 
 // The reply message for a file's chunk handler and its replica locations.
+// TO:DO Update Message to distinguish the primary chunkserver ID
 message ChunkLocationReply {
   uint64 chunkHandle = 1;
-  repeated string chunkServerIds = 2;
+  string primary = 2;
+  repeated string chunkServerIds = 3;
 }
   
 // The response message acknowledging a transaction.
