@@ -18,9 +18,23 @@ type ChunkServer struct {
 	ChunkHandleToFile map[uint64]string // Chunkhandle to filepath of chunk
 	Rootpath          string            // Root directory path for chunkserver
 	Address           string            // Address of chunkserver
+	leases            map[uint64]int64  // Chunkhandle to end time of lease
 }
 
-// TO:DO There should be an init function for the ChunkServer Struct
+func NewChunkServer(addr string) ChunkServer {
+	chunkserverRootDir := chunkServerTempDirectoryPath + addr
+	fmt.Println("starting up chunkserver " + addr + ".")
+	if err := os.MkdirAll(chunkserverRootDir, os.ModePerm); err != nil {
+		// TO:DO This shouldn't really fatally crash the program, it's just one program
+		log.Fatal(err)
+	}
+
+	return ChunkServer{
+		ChunkHandleToFile: make(map[uint64]string),
+		Rootpath:          chunkserverRootDir,
+		Address:           addr,
+		leases:            make(map[uint64]int64)}
+}
 
 func (s *ChunkServer) Read(ctx context.Context, readReq *protos.ReadRequest) (*protos.ReadReply, error) {
 	return &protos.ReadReply{Data: "chicken"}, nil
@@ -52,5 +66,6 @@ func (s *ChunkServer) CreateNewChunk(ctx context.Context, ch *protos.ChunkHandle
 }
 
 func (s *ChunkServer) ReceiveLease(ctx context.Context, l *protos.LeaseBundle) (*protos.Ack, error) {
+	s.leases[l.Ch] = l.TimeEnd
 	return &protos.Ack{Msg: fmt.Sprintf("successfully received lease for chunk %d", l.Ch)}, nil
 }

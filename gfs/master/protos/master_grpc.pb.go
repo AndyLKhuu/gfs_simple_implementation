@@ -35,7 +35,7 @@ type MasterClient interface {
 	// Remove a file.
 	RemoveFile(ctx context.Context, in *FileRemoveRequest, opts ...grpc.CallOption) (*Ack, error)
 	// Renew lease on chunk.
-	RenewChunkLease(ctx context.Context, in *ChunkHandle, opts ...grpc.CallOption) (*Ack, error)
+	RenewChunkLease(ctx context.Context, in *RenewChunkLeaseRequest, opts ...grpc.CallOption) (*Ack, error)
 }
 
 type masterClient struct {
@@ -100,7 +100,7 @@ func (c *masterClient) RemoveFile(ctx context.Context, in *FileRemoveRequest, op
 	return out, nil
 }
 
-func (c *masterClient) RenewChunkLease(ctx context.Context, in *ChunkHandle, opts ...grpc.CallOption) (*Ack, error) {
+func (c *masterClient) RenewChunkLease(ctx context.Context, in *RenewChunkLeaseRequest, opts ...grpc.CallOption) (*Ack, error) {
 	out := new(Ack)
 	err := c.cc.Invoke(ctx, "/master.Master/RenewChunkLease", in, out, opts...)
 	if err != nil {
@@ -126,7 +126,7 @@ type MasterServer interface {
 	// Remove a file.
 	RemoveFile(context.Context, *FileRemoveRequest) (*Ack, error)
 	// Renew lease on chunk.
-	RenewChunkLease(context.Context, *ChunkHandle) (*Ack, error)
+	RenewChunkLease(context.Context, *RenewChunkLeaseRequest) (*Ack, error)
 	mustEmbedUnimplementedMasterServer()
 }
 
@@ -152,7 +152,7 @@ func (UnimplementedMasterServer) CreateFile(context.Context, *FileCreateRequest)
 func (UnimplementedMasterServer) RemoveFile(context.Context, *FileRemoveRequest) (*Ack, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RemoveFile not implemented")
 }
-func (UnimplementedMasterServer) RenewChunkLease(context.Context, *ChunkHandle) (*Ack, error) {
+func (UnimplementedMasterServer) RenewChunkLease(context.Context, *RenewChunkLeaseRequest) (*Ack, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RenewChunkLease not implemented")
 }
 func (UnimplementedMasterServer) mustEmbedUnimplementedMasterServer() {}
@@ -277,7 +277,7 @@ func _Master_RemoveFile_Handler(srv interface{}, ctx context.Context, dec func(i
 }
 
 func _Master_RenewChunkLease_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ChunkHandle)
+	in := new(RenewChunkLeaseRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -289,7 +289,7 @@ func _Master_RenewChunkLease_Handler(srv interface{}, ctx context.Context, dec f
 		FullMethod: "/master.Master/RenewChunkLease",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MasterServer).RenewChunkLease(ctx, req.(*ChunkHandle))
+		return srv.(MasterServer).RenewChunkLease(ctx, req.(*RenewChunkLeaseRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
