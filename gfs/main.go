@@ -41,9 +41,9 @@ func main() {
 			defer c.MasterConn.Close()
 			log.Println("Initialized a client")
 
-			// test.Run(test.WriteReadSmallFileTest, c)
-			// test.Run(test.WriteReadMediumFileTest, c)
-			// test.Run(test.WriteReadLargeFileTest, c)
+			test.Run(test.WriteReadSmallFileTest, c)
+			test.Run(test.WriteReadMediumFileTest, c)
+			test.Run(test.WriteReadLargeFileTest, c)
 			test.Run(test.WriteReadLargeFileOffsettedTest, c)
 
 			// test.RunAll(c)
