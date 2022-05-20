@@ -25,3 +25,4 @@ Vincent:
 - Benchmarking
 - More consistent/systematic logging -> consider how logging IO affect benchmarking data when longers program paths have more logs (can we turn off with a flag?) [Mentioned by Andy] 
 - Look into more sysematic workload/test generation in test.go
+- Use dedicated testing package in stead of running in main

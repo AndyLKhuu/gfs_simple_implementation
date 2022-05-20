@@ -11,9 +11,9 @@ service Master {
   rpc GetSystemChunkSize(SystemChunkSizeRequest) returns (ChunkSize) {}
   // ClientWriteRequest
   rpc ReceiveClientWriteRequest(ClientWriteRequest) returns (Ack) {} 
-  // Create a file.
+  // CreateFile 
   rpc CreateFile(FileCreateRequest) returns (Ack) {}
-  // Remove a file.
+  // RemoveFile
   rpc RemoveFile(FileRemoveRequest) returns (Ack) {}
   // Renew lease on chunk.
   rpc RenewChunkLease(RenewChunkLeaseRequest) returns (Ack) {}
