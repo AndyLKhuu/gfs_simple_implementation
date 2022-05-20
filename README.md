@@ -14,3 +14,4 @@
 - Fix Subtle Bug where if the number of successful Chunkservers is < NUMCHUNKSERVERS, then the error is properly handled
 - Optimize generateChunkHandle() such that it is resilience and deterministic under heavy load.
 - Add function to cleanly and safely destruct everything. (memory, files, etc)
+- Upgrade Lock Manager to support directories

@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"gfs/chunkserver/protos"
 	"log"
 	"os"
@@ -22,6 +23,23 @@ type ChunkServer struct {
 	Rootpath          string                             // Root directory path for chunkserver
 	Address           string                             // Address of chunkserver
 	WriteCache        map[string]*protos.WriteDataBundle // Internal "LRU"
+	leases            map[uint64]int64                   // Chunkhandle to end time of lease
+}
+
+func NewChunkServer(addr string) ChunkServer {
+	chunkserverRootDir := chunkServerTempDirectoryPath + addr
+	fmt.Println("starting up chunkserver " + addr + ".")
+	if err := os.MkdirAll(chunkserverRootDir, os.ModePerm); err != nil {
+		// TO:DO This shouldn't really fatally crash the program, it's just one program
+		log.Fatal(err)
+	}
+
+	return ChunkServer{
+		ChunkHandleToFile: make(map[uint64]string),
+		Rootpath:          chunkserverRootDir,
+		Address:           addr,
+		WriteCache:        make(map[string]*protos.WriteDataBundle),
+		leases:            make(map[uint64]int64)}
 }
 
 func (s *ChunkServer) Read(ctx context.Context, readReq *protos.ReadRequest) (*protos.ReadReply, error) {
@@ -110,4 +128,9 @@ func (s *ChunkServer) localWriteToFile(transactionId string, path string, data [
 	delete(s.WriteCache, transactionId)
 	file.Close()
 	return 0
+}
+
+func (s *ChunkServer) ReceiveLease(ctx context.Context, l *protos.LeaseBundle) (*protos.Ack, error) {
+	s.leases[l.Ch] = l.TimeEnd
+	return &protos.Ack{Message: fmt.Sprintf("successfully received lease for chunk %d", l.Ch)}, nil
 }

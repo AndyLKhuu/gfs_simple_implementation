@@ -34,6 +34,8 @@ type MasterClient interface {
 	CreateFile(ctx context.Context, in *FileCreateRequest, opts ...grpc.CallOption) (*Ack, error)
 	// RemoveFile
 	RemoveFile(ctx context.Context, in *FileRemoveRequest, opts ...grpc.CallOption) (*Ack, error)
+	// Renew lease on chunk.
+	RenewChunkLease(ctx context.Context, in *RenewChunkLeaseRequest, opts ...grpc.CallOption) (*Ack, error)
 }
 
 type masterClient struct {
@@ -98,6 +100,15 @@ func (c *masterClient) RemoveFile(ctx context.Context, in *FileRemoveRequest, op
 	return out, nil
 }
 
+func (c *masterClient) RenewChunkLease(ctx context.Context, in *RenewChunkLeaseRequest, opts ...grpc.CallOption) (*Ack, error) {
+	out := new(Ack)
+	err := c.cc.Invoke(ctx, "/master.Master/RenewChunkLease", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MasterServer is the server API for Master service.
 // All implementations must embed UnimplementedMasterServer
 // for forward compatibility
@@ -114,6 +125,8 @@ type MasterServer interface {
 	CreateFile(context.Context, *FileCreateRequest) (*Ack, error)
 	// RemoveFile
 	RemoveFile(context.Context, *FileRemoveRequest) (*Ack, error)
+	// Renew lease on chunk.
+	RenewChunkLease(context.Context, *RenewChunkLeaseRequest) (*Ack, error)
 	mustEmbedUnimplementedMasterServer()
 }
 
@@ -138,6 +151,9 @@ func (UnimplementedMasterServer) CreateFile(context.Context, *FileCreateRequest)
 }
 func (UnimplementedMasterServer) RemoveFile(context.Context, *FileRemoveRequest) (*Ack, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RemoveFile not implemented")
+}
+func (UnimplementedMasterServer) RenewChunkLease(context.Context, *RenewChunkLeaseRequest) (*Ack, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RenewChunkLease not implemented")
 }
 func (UnimplementedMasterServer) mustEmbedUnimplementedMasterServer() {}
 
@@ -260,6 +276,24 @@ func _Master_RemoveFile_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Master_RenewChunkLease_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RenewChunkLeaseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MasterServer).RenewChunkLease(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/master.Master/RenewChunkLease",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MasterServer).RenewChunkLease(ctx, req.(*RenewChunkLeaseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Master_ServiceDesc is the grpc.ServiceDesc for Master service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -290,6 +324,10 @@ var Master_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RemoveFile",
 			Handler:    _Master_RemoveFile_Handler,
+		},
+		{
+			MethodName: "RenewChunkLease",
+			Handler:    _Master_RenewChunkLease_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

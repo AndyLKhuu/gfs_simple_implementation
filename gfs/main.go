@@ -41,7 +41,7 @@ func main() {
 			defer c.MasterConn.Close()
 			log.Println("Initialized a client")
 
-			// test.Run(test.SmallFileTest, c)
+			// test.Run(test.LargeFileTest, c)
 			// test.RunAll(c)
 			test.RunRandom(c)
 		}()

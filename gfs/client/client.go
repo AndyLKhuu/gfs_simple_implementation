@@ -127,6 +127,7 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 
 		// Client pushes data to all replicas
 		transactionId := uuid.New().String()
+		log.Println("***TRANSACTIONID: ")
 		log.Println(transactionId)
 		replicaReceiveStatus := make([]bool, len(chunkLocations))
 		for i := 0; i < len(chunkLocations); i++ { // TODO: optimize to async

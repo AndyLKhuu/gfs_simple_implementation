@@ -13,6 +13,8 @@ service ChunkServer {
   rpc SecondaryCommitMutate(SecondaryCommitMutateRequest) returns (Ack) {}
   // Creates a new chunk.
   rpc CreateNewChunk(ChunkHandle) returns (Ack) {}
+  // Receive a lease for a chunk
+  rpc ReceiveLease(LeaseBundle) returns (Ack) {}
 }
 
 // The reply message containing the data from a file read.
@@ -55,5 +57,11 @@ message WriteDataBundle {
   uint64 ch = 3;
   int64 offset = 4;
   string transactionId = 5;
+}
+
+// A request message containing a lease for a chunk
+message LeaseBundle {
+  uint64 ch = 1;
+  int64 timeEnd = 2;
 }
 
