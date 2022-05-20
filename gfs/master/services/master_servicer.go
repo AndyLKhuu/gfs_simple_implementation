@@ -141,9 +141,6 @@ func (s *MasterServer) RemoveFile(ctx context.Context, removeReq *protos.FileRem
 	s.removeChunks(path)
 	//TO:DO We also have to remove the file meta data from the in-memory structures on the master
 	delete(s.Files, path)
-	log.Println("STate of master:")
-
-	log.Println(s)
 	return &protos.Ack{Message: fmt.Sprintf("successfuly deleted file at path %s", path)}, nil
 }
 
@@ -203,7 +200,6 @@ func (s *MasterServer) removeChunks(path string) int {
 		delete(s.Chunks, chunkHandle)
 		delete(s.chunkHandleSet, chunkHandle)
 		delete(s.leases, chunkHandle)
-		// Todo: update metdata
 
 	}
 	return -1
