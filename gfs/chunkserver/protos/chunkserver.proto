@@ -35,7 +35,6 @@ message ChunkHandle {
 message PrimaryCommitMutateRequest {
   uint64 ch = 1;
   repeated string secondaryChunkServerAddresses = 2;
-
 }
 
 // A reply message containing an acknowledgement

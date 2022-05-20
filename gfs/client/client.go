@@ -105,7 +105,6 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 	totalBytesWritten := int64(0)
 	remainingBytesToWrite := int64(len(data))
 	for dataOffset := offset + 0; dataOffset < offset+int64(len(data)); {
-
 		chunkIdx := int32(dataOffset / chunkSize)
 		chunkOffset := int64(dataOffset) % chunkSize
 		remainingChunkSpace := chunkSize - chunkOffset
