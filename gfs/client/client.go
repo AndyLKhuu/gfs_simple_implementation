@@ -81,11 +81,13 @@ func (client *Client) Read(path string, offset int64, data []byte) int {
 		if remainingChunkSpace < nBytesToRead {
 			nBytesToRead = remainingChunkSpace
 		}
+
 		getChunkLocationReply, err := masterClient.GetChunkLocation(context.Background(), &protos.ChunkLocationRequest{Path: path, ChunkIdx: chunkIdx})
 		if err != nil {
 			log.Printf("error when calling GetChunkLocation: %s", err)
 			return -1
 		}
+
 		chunkLocations := getChunkLocationReply.ChunkServerIds
 		chunkHandle := getChunkLocationReply.ChunkHandle
 		chunkServerAddr := chunkLocations[rand.Intn(len(chunkLocations))]                             // Current readRequest load balancing is Random

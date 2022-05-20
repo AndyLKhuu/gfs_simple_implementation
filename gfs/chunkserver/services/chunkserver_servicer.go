@@ -55,7 +55,10 @@ func (s *ChunkServer) Read(ctx context.Context, readReq *protos.ReadRequest) (*p
 	}
 	length := rightBound - leftBound
 	data := make([]byte, length)
-	file.ReadAt(data, int64(leftBound))
+	_, err = file.ReadAt(data, int64(leftBound))
+	if err != nil {
+		return &protos.ReadReply{}, err
+	}
 
 	return &protos.ReadReply{Data: string(data)}, nil
 }
@@ -89,17 +92,17 @@ func (s *ChunkServer) PrimaryCommitMutate(ctx context.Context, primaryCommitMuta
 		conn, err := grpc.Dial(secondaryChunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure()) // connecting to secondary chunk server
 		defer conn.Close()
 		if err != nil {
-			log.Printf("error occured when primaryCS dialing to secondaryCS: %s", err)
-			return &protos.Ack{}, errors.New("error occured when primaryCS dialing to secondaryCS")
+			log.Printf("error occurred when primaryCS dialing to secondaryCS: %s", err)
+			return &protos.Ack{}, errors.New("error occurred when primaryCS dialing to secondaryCS")
 		}
 
 		secondaryChunkServerClient := protos.NewChunkServerClient(conn)
 		_, err = secondaryChunkServerClient.SecondaryCommitMutate(context.Background(), &protos.SecondaryCommitMutateRequest{Ch: chunkHandle, TransactionId: transactionId})
 		if err != nil {
-			log.Printf("error occured on secondaryCommitMutate %s", err)
-			return &protos.Ack{}, errors.New("error occured on secondaryCommitMutate")
+			log.Printf("error occurred on secondaryCommitMutate %s", err)
+			return &protos.Ack{}, errors.New("error occurred on secondaryCommitMutate")
 		}
-		// TODO: If there is an error, do we want to roll back the secondary's commit?
+		// TODO: If forwarding fails, keep trying until success or reach some boundary
 	}
 	log.Printf("Primary chunkserver %s successfully committed and forwarded to %s", s.Address, secondaryChunkServerAddresses)
 	return &protos.Ack{Message: "Primary chunkserver " + s.Address + " successfully committed and forwarded"}, nil
@@ -149,10 +152,19 @@ func (s *ChunkServer) localWriteToFile(transactionId string, path string, data [
 	if err != nil {
 		return -1
 	}
-	file.WriteAt(data, offset)
+
+	nBytesWritten, err := file.WriteAt(data, offset)
+	if err != nil {
+		return -1
+	}
+
 	delete(s.WriteCache, transactionId)
-	file.Close()
-	return 0
+	err = file.Close()
+	if err != nil {
+		return -1
+	}
+
+	return nBytesWritten
 }
 
 func (s *ChunkServer) ReceiveLease(ctx context.Context, l *protos.LeaseBundle) (*protos.Ack, error) {

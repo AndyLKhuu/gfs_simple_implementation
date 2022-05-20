@@ -40,24 +40,10 @@ func main() {
 			c := client.InitClient(masterServerPort)
 			defer c.MasterConn.Close()
 			log.Println("Initialized a client")
-			// test.RunRandom(c)
 
-			// test.Run(test.WriteReadSmallFileTest, c)
-			// test.Run(test.WriteReadMediumFileTest, c)
-			// test.Run(test.WriteReadLargeFileTest, c)
-			// test.Run(test.WriteRemoveSmallFileTest, c)
-			// test.Run(test.WriteRemoveLargeFileTest, c)
-			// test.Run(test.WriteSmallFileTest, c)
-
-			// test.Run(test.WriteLargeFileTest, c)
-
-			// test.Run(test.WriteReadSmallFileTest, c)
-
-			// test.Run(test.WriteReadLargeFileTest, c)
 			test.Run(test.WriteRemoveSmallFileTest, c)
 			test.Run(test.WriteRemoveLargeFileTest, c)
 
-			// test.RunAll(c)
 		}()
 	}
 
