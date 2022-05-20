@@ -43,7 +43,24 @@ func NewChunkServer(addr string) ChunkServer {
 }
 
 func (s *ChunkServer) Read(ctx context.Context, readReq *protos.ReadRequest) (*protos.ReadReply, error) {
-	return &protos.ReadReply{Data: "chicken"}, nil
+
+	chunkHandle := readReq.Ch
+	leftBound := readReq.L
+	rightBound := readReq.R
+
+	path := chunkServerTempDirectoryPath + s.Address + "/" + strconv.FormatUint(chunkHandle, 10) + ".txt"
+	file, err := os.OpenFile(path, os.O_RDONLY, 0644)
+	if err != nil {
+		return &protos.ReadReply{}, err
+	}
+	length := rightBound - leftBound
+	data := make([]byte, length)
+	_, err = file.ReadAt(data, int64(leftBound))
+	if err != nil {
+		return &protos.ReadReply{}, err
+	}
+
+	return &protos.ReadReply{Data: string(data)}, nil
 }
 
 func (s *ChunkServer) ReceiveWriteData(ctx context.Context, writeBundle *protos.WriteDataBundle) (*protos.Ack, error) {
@@ -124,10 +141,19 @@ func (s *ChunkServer) localWriteToFile(transactionId string, path string, data [
 	if err != nil {
 		return -1
 	}
-	file.WriteAt(data, offset)
+
+	nBytesWritten, err := file.WriteAt(data, offset)
+	if err != nil {
+		return -1
+	}
+
 	delete(s.WriteCache, transactionId)
-	file.Close()
-	return 0
+	err = file.Close()
+	if err != nil {
+		return -1
+	}
+
+	return nBytesWritten
 }
 
 func (s *ChunkServer) ReceiveLease(ctx context.Context, l *protos.LeaseBundle) (*protos.Ack, error) {
