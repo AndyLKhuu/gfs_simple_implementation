@@ -83,10 +83,6 @@ func (s *MasterServer) GetChunkLocation(ctx context.Context, chunkLocReq *protos
 	chunkHandle := s.Files[path][chunkIdx]
 	chunkServerIds := s.Chunks[chunkHandle]
 
-	// return &protos.ChunkLocationReply{ChunkHandle: chunkHandle, ChunkServerIds: chunkServerIds}, nil
-	// chunkHandle := s.Files[path][chunkIdx]
-	// chunkServerIds := s.Chunks[chunkHandle]
-
 	primary, err := s.checkOrCreateLease(chunkHandle, chunkServerIds)
 	if err != nil {
 		return &protos.ChunkLocationReply{}, err
