@@ -2,16 +2,17 @@ package client
 
 import (
 	"context"
-	"gfs/master/protos" // alias this import to 'm' to match 'cs' 
-	"log"
 	cs "gfs/chunkserver/protos"
-	"time"
+	"gfs/master/protos" // alias this import to 'm' to match 'cs'
+	"log"
 	"math/rand"
+	"time"
+
 	"google.golang.org/grpc"
 )
 
 type Client struct {
-	MasterConn *grpc.ClientConn // used to later close connection
+	MasterConn   *grpc.ClientConn     // used to later close connection
 	MasterClient *protos.MasterClient // used to invoke RPCs
 }
 
@@ -25,91 +26,91 @@ func InitClient(mAddr string) *Client {
 
 	c := protos.NewMasterClient(conn)
 
-	client := new(Client);
-	client.MasterConn = conn;
-	client.MasterClient = &c;
+	client := new(Client)
+	client.MasterConn = conn
+	client.MasterClient = &c
 
-	return client;
+	return client
 }
 
 func (client *Client) Create(path string) int {
-	masterClient := *(client.MasterClient);
+	masterClient := *(client.MasterClient)
 	_, err := masterClient.CreateFile(context.Background(), &protos.FileCreateRequest{Path: path, RepFactor: 1})
 	if err != nil {
-		log.Println("error when calling CreateFile %s.", err);
-		return -1;
-	} 
-	log.Printf("Succesfully created file: %s", path);
-	return 0;
+		log.Printf("error when calling CreateFile %s.", err)
+		return -1
+	}
+	log.Printf("Succesfully created file: %s", path)
+	return 0
 }
 
 func (client *Client) Remove(path string) int {
-	masterClient := *(client.MasterClient);
+	masterClient := *(client.MasterClient)
 	_, err := masterClient.RemoveFile(context.Background(), &protos.FileRemoveRequest{Path: path})
 	if err != nil {
-		log.Println("error when calling RemoveFile %s", err);
-		return -1;
-	} 
-	log.Printf("Succesfully removed file: %s", path);
-	return 0;
+		log.Printf("error when calling RemoveFile %s", err)
+		return -1
+	}
+	log.Printf("Succesfully removed file: %s", path)
+	return 0
 }
 
 func (client *Client) Read(path string, offset int64, data []byte) int {
-	masterClient := *(client.MasterClient);
+	masterClient := *(client.MasterClient)
 	getSystemChunkSizeReply, err := masterClient.GetSystemChunkSize(context.Background(), &protos.SystemChunkSizeRequest{})
 	if err != nil {
 		log.Printf("error when calling GetSystemChunkSize: %s", err)
-		return -1; 
+		return -1
 	}
 
-	chunkSize := getSystemChunkSizeReply.Size;
- 	chunkIdx := int32(offset/chunkSize);
+	chunkSize := getSystemChunkSizeReply.Size
+	chunkIdx := int32(offset / chunkSize)
 
 	getChunkLocationReply, err := masterClient.GetChunkLocation(context.Background(), &protos.ChunkLocationRequest{Path: path, ChunkIdx: chunkIdx})
 	if err != nil {
-		log.Printf("error when calling GetChunkLocation: %s", err);
-		return -1;
+		log.Printf("error when calling GetChunkLocation: %s", err)
+		return -1
 	}
 
 	chunkLocations := getChunkLocationReply.ChunkServerIds
 	chunkHandle := getChunkLocationReply.ChunkHandle
 
-	chunkServerAddr := chunkLocations[rand.Intn(len(chunkLocations))]; // Current readRequest load balancing is Random
+	chunkServerAddr := chunkLocations[rand.Intn(len(chunkLocations))]                             // Current readRequest load balancing is Random
 	conn, err := grpc.Dial(chunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure()) // connecting to chunk server
 	if err != nil {
 		log.Printf("error when client connecting to chunk server: %s", err)
 		return -1
 	}
 
-	chunkServerClient := cs.NewChunkServerClient(conn);
+	chunkServerClient := cs.NewChunkServerClient(conn)
 	readReply, err := chunkServerClient.Read(context.Background(), &cs.ReadRequest{Ch: chunkHandle, L: 0, R: 0}) // not implemented yet. just reads back chicken
 
-	copy(data, []byte(readReply.Data) )
-	return 0;
+	copy(data, []byte(readReply.Data))
+	return 0
 }
 
 func (client *Client) Write(path string, offset int64, data []byte) int {
-	masterClient := *(client.MasterClient);
+	masterClient := *(client.MasterClient)
 	getSystemChunkSizeReply, err := masterClient.GetSystemChunkSize(context.Background(), &protos.SystemChunkSizeRequest{})
 	if err != nil {
 		log.Printf("error when calling GetSystemChunkSize: %s", err)
 		return -1
 	}
 
-	chunkSize := getSystemChunkSizeReply.Size; // For testing, we are curently treating SIZE as number of bytes
+	chunkSize := getSystemChunkSizeReply.Size // For testing, we are curently treating SIZE as number of bytes
 
 	totalBytesToWrite := len(data)
 	log.Printf("Total bytes to write: %d", totalBytesToWrite)
 
 	totalBytesWritten := int64(0)
 	remainingBytesToWrite := int64(len(data))
-	for dataOffset := offset + int64(0); dataOffset < offset + int64(len(data)); {
+	for dataOffset := offset + int64(0); dataOffset < offset+int64(len(data)); {
 
-		chunkIdx := int32(dataOffset/chunkSize)
+		chunkIdx := int32(dataOffset / chunkSize)
 		chunkOffset := int64(dataOffset) % chunkSize
 		remainingChunkSpace := chunkSize - chunkOffset
-				
-		// Calculate max number of bytes to write 
+
+		// Calculate max number of bytes to write
 		nBytesToWrite := chunkSize
 		if remainingChunkSpace < nBytesToWrite {
 			nBytesToWrite = remainingChunkSpace
@@ -120,15 +121,15 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 
 		getChunkLocationReply, err := masterClient.GetChunkLocation(context.Background(), &protos.ChunkLocationRequest{Path: path, ChunkIdx: chunkIdx})
 		if err != nil {
-			log.Printf("error when calling GetChunkLocation: %s", err);
-			return -1;
+			log.Printf("error when calling GetChunkLocation: %s", err)
+			return -1
 		}
 
 		// log.Printf("Here A")
 		chunkLocations := getChunkLocationReply.ChunkServerIds
 		chunkHandle := getChunkLocationReply.ChunkHandle
 
-		// Client pushses data to all replicas 
+		// Client pushses data to all replicas
 		replicaReceiveStatus := make([]bool, len(chunkLocations))
 		for i := 0; i < len(chunkLocations); i++ { // Should we async this instead of sequential?
 			chunkServerAddr := chunkLocations[i]
@@ -138,9 +139,9 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 				replicaReceiveStatus[i] = false
 				continue
 			}
-			chunkServerClient := cs.NewChunkServerClient(conn);
-			_, err = chunkServerClient.ReceiveWriteData(context.Background(), 
-				&cs.WriteDataBundle{Data: data[totalBytesWritten:totalBytesWritten + nBytesToWrite], Size: nBytesToWrite, Ch: chunkHandle, Offset: chunkOffset})
+			chunkServerClient := cs.NewChunkServerClient(conn)
+			_, err = chunkServerClient.ReceiveWriteData(context.Background(),
+				&cs.WriteDataBundle{Data: data[totalBytesWritten : totalBytesWritten+nBytesToWrite], Size: nBytesToWrite, Ch: chunkHandle, Offset: chunkOffset})
 			if err != nil {
 				log.Printf("error when client sending write data to chunk server: %s", err)
 				replicaReceiveStatus[i] = false
@@ -149,22 +150,22 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 			replicaReceiveStatus[i] = true
 			conn.Close()
 		}
-		// Do we need to resend writeData to failed nodes? 
+		// Do we need to resend writeData to failed nodes?
 
-		// Client tells primary to commit 
-		primaryChunkServerAddr := chunkLocations[0]	
+		// Client tells primary to commit
+		primaryChunkServerAddr := chunkLocations[0]
 		conn, err := grpc.Dial(primaryChunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure())
 		if err != nil {
 			log.Printf("error when client connecting to primary chunk server: %s", err)
 			return -1
 		}
-		primaryChunkServerClient := cs.NewChunkServerClient(conn);
-		_, err = primaryChunkServerClient.PrimaryCommitMutate(context.Background(), 
+		primaryChunkServerClient := cs.NewChunkServerClient(conn)
+		_, err = primaryChunkServerClient.PrimaryCommitMutate(context.Background(),
 			&cs.PrimaryCommitMutateRequest{Ch: chunkHandle, SecondaryChunkServerAddresses: chunkLocations[1:]})
 
 		conn.Close()
 
-		dataOffset += nBytesToWrite 
+		dataOffset += nBytesToWrite
 		remainingBytesToWrite -= nBytesToWrite
 		totalBytesWritten += nBytesToWrite
 	}
