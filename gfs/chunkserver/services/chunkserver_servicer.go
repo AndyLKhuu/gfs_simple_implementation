@@ -43,7 +43,21 @@ func NewChunkServer(addr string) ChunkServer {
 }
 
 func (s *ChunkServer) Read(ctx context.Context, readReq *protos.ReadRequest) (*protos.ReadReply, error) {
-	return &protos.ReadReply{Data: "chicken"}, nil
+
+	chunkHandle := readReq.Ch
+	leftBound := readReq.L
+	rightBound := readReq.R
+
+	path := chunkServerTempDirectoryPath + s.Address + "/" + strconv.FormatUint(chunkHandle, 10) + ".txt"
+	file, err := os.OpenFile(path, os.O_RDONLY, 0644)
+	if err != nil {
+		return &protos.ReadReply{}, err
+	}
+	length := rightBound - leftBound
+	data := make([]byte, length)
+	file.ReadAt(data, int64(leftBound))
+
+	return &protos.ReadReply{Data: string(data)}, nil
 }
 
 func (s *ChunkServer) ReceiveWriteData(ctx context.Context, writeBundle *protos.WriteDataBundle) (*protos.Ack, error) {

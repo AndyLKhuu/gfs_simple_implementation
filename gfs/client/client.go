@@ -65,29 +65,56 @@ func (client *Client) Read(path string, offset int64, data []byte) int {
 	}
 
 	chunkSize := getSystemChunkSizeReply.Size
-	chunkIdx := int32(offset / chunkSize)
 
-	getChunkLocationReply, err := masterClient.GetChunkLocation(context.Background(), &protos.ChunkLocationRequest{Path: path, ChunkIdx: chunkIdx})
-	if err != nil {
-		log.Printf("error when calling GetChunkLocation: %s", err)
-		return -1
+	totalBytesToRead := len(data)
+	log.Printf("Total bytes to write: %d", totalBytesToRead)
+
+	totalBytesRead := int64(0)
+	remainingBytesToRead := int64(len(data))
+	for dataOffset := offset; dataOffset < offset+int64(len(data)); {
+		chunkIdx := int32(dataOffset / chunkSize) // check this
+		chunkOffset := int64(dataOffset) % chunkSize
+		remainingChunkSpace := chunkSize - chunkOffset
+
+		// Calculate max number of bytes to read
+		nBytesToRead := remainingBytesToRead
+		if remainingChunkSpace < nBytesToRead {
+			nBytesToRead = remainingChunkSpace
+		}
+
+		getChunkLocationReply, err := masterClient.GetChunkLocation(context.Background(), &protos.ChunkLocationRequest{Path: path, ChunkIdx: chunkIdx})
+		if err != nil {
+			log.Printf("error when calling GetChunkLocation: %s", err)
+			return -1
+		}
+
+		chunkLocations := getChunkLocationReply.ChunkServerIds
+		chunkHandle := getChunkLocationReply.ChunkHandle
+
+		chunkServerAddr := chunkLocations[rand.Intn(len(chunkLocations))] // Current readRequest load balancing is Random
+
+		conn, err := grpc.Dial(chunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure()) // connecting to chunk server
+		if err != nil {
+			log.Printf("error when client connecting to chunk server: %s", err)
+			return -1
+		}
+
+		chunkServerClient := cs.NewChunkServerClient(conn)
+		readReply, err := chunkServerClient.Read(context.Background(), &cs.ReadRequest{Ch: chunkHandle, L: int32(chunkOffset), R: int32(nBytesToRead)}) // not implemented yet. just reads back chicken
+		conn.Close()
+
+		copy(data[totalBytesRead:totalBytesRead+nBytesToRead], []byte(readReply.Data))
+
+		dataOffset += nBytesToRead
+		remainingBytesToRead -= nBytesToRead
+		totalBytesRead += nBytesToRead
 	}
 
-	chunkLocations := getChunkLocationReply.ChunkServerIds
-	chunkHandle := getChunkLocationReply.ChunkHandle
+	// change start
 
-	chunkServerAddr := chunkLocations[rand.Intn(len(chunkLocations))]                             // Current readRequest load balancing is Random
-	conn, err := grpc.Dial(chunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure()) // connecting to chunk server
-	if err != nil {
-		log.Printf("error when client connecting to chunk server: %s", err)
-		return -1
-	}
+	// change end
 
-	chunkServerClient := cs.NewChunkServerClient(conn)
-	readReply, err := chunkServerClient.Read(context.Background(), &cs.ReadRequest{Ch: chunkHandle, L: 0, R: 0}) // not implemented yet. just reads back chicken
-
-	copy(data, []byte(readReply.Data))
-	return 0
+	return int(totalBytesRead)
 }
 
 func (client *Client) Write(path string, offset int64, data []byte) int {
@@ -105,7 +132,7 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 
 	totalBytesWritten := int64(0)
 	remainingBytesToWrite := int64(len(data))
-	for dataOffset := offset + 0; dataOffset < offset+int64(len(data)); {
+	for dataOffset := offset; dataOffset < offset+int64(len(data)); {
 		chunkIdx := int32(dataOffset / chunkSize)
 		chunkOffset := int64(dataOffset) % chunkSize
 		remainingChunkSpace := chunkSize - chunkOffset
