@@ -40,7 +40,7 @@ message PrimaryCommitMutateRequest {
 
 // A reply message containing an acknowledgement
 message Ack {
-  string msg = 1;
+  string message = 1;
 }
 
 // A request message containing potential mutation data from clients.

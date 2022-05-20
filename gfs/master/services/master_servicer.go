@@ -110,7 +110,7 @@ func (s *MasterServer) createNewChunk(path string) int {
 			s.Chunks[ch] = []string{}
 			return -1
 		}
-		log.Printf(res.Msg)
+		log.Printf(res.Message)
 
 		s.Chunks[ch] = append(s.Chunks[ch], k)
 	}

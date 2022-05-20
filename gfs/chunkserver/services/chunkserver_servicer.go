@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"gfs/chunkserver/protos"
 	"log"
 	"os"
@@ -9,8 +10,6 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // TO:DO Find better naming than ch for chunkhandle messages
@@ -33,7 +32,8 @@ func (s *ChunkServer) ReceiveWriteData(ctx context.Context, writeBundle *protos.
 	// ChunkServer stores write data in internal LRU
 	chunkHandle := writeBundle.Ch
 	s.WriteCache[chunkHandle] = writeBundle
-	return &protos.Ack{}, nil
+	log.Printf("Chunkserver %s successfully received write data", s.Address)
+	return &protos.Ack{Message: "Chunkserver " + s.Address + " successfully received write data."}, nil
 }
 
 func (s *ChunkServer) PrimaryCommitMutate(ctx context.Context, primaryCommitMutateRequest *protos.PrimaryCommitMutateRequest) (*protos.Ack, error) {
@@ -45,7 +45,7 @@ func (s *ChunkServer) PrimaryCommitMutate(ctx context.Context, primaryCommitMuta
 		defer conn.Close()
 		if err != nil {
 			log.Printf("error occured when primaryCS diaing to secondaryCS: %s", err)
-			return &protos.Ack{}, status.Errorf(codes.Unavailable, "error occured when primaryCS diaing to secondaryCS")
+			return &protos.Ack{}, errors.New("error occured when primaryCS dialing to secondaryCS")
 		}
 
 		// Primary forwards commit request to secondary
@@ -53,16 +53,16 @@ func (s *ChunkServer) PrimaryCommitMutate(ctx context.Context, primaryCommitMuta
 		_, err = secondaryChunkServerClient.SecondaryCommitMutate(context.Background(), &protos.ChunkHandle{Ch: chunkHandle})
 		if err != nil {
 			log.Printf("error occured on secondaryCommitMutate %s", err)
-			return &protos.Ack{}, status.Errorf(codes.Unavailable, "error occured on secondaryCommitMutate")
+			return &protos.Ack{}, errors.New("error occured on secondaryCommitMutate")
 		}
 		// TODO: If there is an error, do we want to roll back the secondary's commit?
 	}
 
 	// Primary commits
-	path := chunkServerTempDirectoryPath + s.Address + "/" + strconv.FormatUint(chunkHandle, 10)
+	path := chunkServerTempDirectoryPath + s.Address + "/" + strconv.FormatUint(chunkHandle, 10) + ".txt"
 	file, err := os.OpenFile(path, os.O_WRONLY, 0644)
 	if err != nil {
-		return &protos.Ack{}, status.Errorf(codes.InvalidArgument, "Error opening file to write in primaryCS")
+		return &protos.Ack{}, errors.New("Error opening file to write in primaryCS")
 	}
 	data := s.WriteCache[chunkHandle].Data
 	offset := s.WriteCache[chunkHandle].Offset
@@ -70,7 +70,8 @@ func (s *ChunkServer) PrimaryCommitMutate(ctx context.Context, primaryCommitMuta
 	file.WriteAt(data, offset)
 	delete(s.WriteCache, chunkHandle)
 	file.Close()
-	return &protos.Ack{}, nil
+	log.Printf("Primary chunkserver %s successfully committed", s.Address)
+	return &protos.Ack{Message: "Primary chunkserver " + s.Address + " successfully committed"}, nil
 }
 
 func (s *ChunkServer) SecondaryCommitMutate(ctx context.Context, ch *protos.ChunkHandle) (*protos.Ack, error) {
@@ -78,14 +79,15 @@ func (s *ChunkServer) SecondaryCommitMutate(ctx context.Context, ch *protos.Chun
 	path := chunkServerTempDirectoryPath + s.Address + "/" + strconv.FormatUint(chunkHandle, 10) + ".txt"
 	file, err := os.OpenFile(path, os.O_WRONLY, 0644)
 	if err != nil {
-		return &protos.Ack{}, status.Errorf(codes.InvalidArgument, "Error opening file to write in secondaryCS") // change
+		return &protos.Ack{}, errors.New("Error opening file to write in secondaryCS") // change
 	}
 	data := s.WriteCache[chunkHandle].Data
 	offset := s.WriteCache[chunkHandle].Offset
 	file.WriteAt(data, offset)
 	delete(s.WriteCache, chunkHandle)
 	file.Close()
-	return &protos.Ack{}, nil
+	log.Printf("Secondary chunkserver %s successfully committed", s.Address)
+	return &protos.Ack{Message: "Secondary chunkserver " + s.Address + " successfully committed"}, nil
 }
 
 func (s *ChunkServer) CreateNewChunk(ctx context.Context, ch *protos.ChunkHandle) (*protos.Ack, error) {
@@ -98,5 +100,5 @@ func (s *ChunkServer) CreateNewChunk(ctx context.Context, ch *protos.ChunkHandle
 	}
 	s.ChunkHandleToFile[chunkHandle] = filepath
 
-	return &protos.Ack{Msg: "successfully replicated chunk on " + s.Address}, nil
+	return &protos.Ack{Message: "successfully replicated chunk on " + s.Address}, nil
 }
