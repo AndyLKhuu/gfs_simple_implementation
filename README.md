@@ -15,3 +15,4 @@
 - Optimize generateChunkHandle() such that it is resilience and deterministic under heavy load.
 - Add function to cleanly and safely destruct everything. (memory, files, etc)
 - Upgrade Lock Manager to support directories
+- Use dedicated testing package in stead of running in main

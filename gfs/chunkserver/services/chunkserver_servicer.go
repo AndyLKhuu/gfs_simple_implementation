@@ -55,7 +55,10 @@ func (s *ChunkServer) Read(ctx context.Context, readReq *protos.ReadRequest) (*p
 	}
 	length := rightBound - leftBound
 	data := make([]byte, length)
-	file.ReadAt(data, int64(leftBound))
+	_, err = file.ReadAt(data, int64(leftBound))
+	if err != nil {
+		return &protos.ReadReply{}, err
+	}
 
 	return &protos.ReadReply{Data: string(data)}, nil
 }
@@ -138,10 +141,19 @@ func (s *ChunkServer) localWriteToFile(transactionId string, path string, data [
 	if err != nil {
 		return -1
 	}
-	file.WriteAt(data, offset)
+
+	nBytesWritten, err := file.WriteAt(data, offset)
+	if err != nil {
+		return -1
+	}
+
 	delete(s.WriteCache, transactionId)
-	file.Close()
-	return 0
+	err = file.Close()
+	if err != nil {
+		return -1
+	}
+
+	return nBytesWritten
 }
 
 func (s *ChunkServer) ReceiveLease(ctx context.Context, l *protos.LeaseBundle) (*protos.Ack, error) {

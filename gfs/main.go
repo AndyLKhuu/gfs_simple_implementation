@@ -45,9 +45,6 @@ func main() {
 			test.Run(test.WriteReadMediumFileTest, c)
 			test.Run(test.WriteReadLargeFileTest, c)
 			test.Run(test.WriteReadLargeFileOffsettedTest, c)
-
-			// test.RunAll(c)
-			// test.RunRandom(c)
 		}()
 	}
 
