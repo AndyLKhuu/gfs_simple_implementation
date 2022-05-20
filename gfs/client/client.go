@@ -115,9 +115,6 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 		if remainingChunkSpace < nBytesToWrite {
 			nBytesToWrite = remainingChunkSpace
 		}
-		// if remainingBytesToWrite < nBytesToWrite {
-		// 	nBytesToWrite = remainingBytesToWrite
-		// }
 
 		getChunkLocationReply, err := masterClient.GetChunkLocation(context.Background(), &protos.ChunkLocationRequest{Path: path, ChunkIdx: chunkIdx})
 		if err != nil {
@@ -134,7 +131,7 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 			chunkServerAddr := chunkLocations[i]
 			conn, err := grpc.Dial(chunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure())
 			if err != nil {
-				log.Printf("error when client connecting to chunk server: %s", err)
+				log.Printf("error when client connecting to chunk server %s: %s", chunkServerAddr, err)
 				replicaReceiveStatus[i] = false
 				continue
 			}
@@ -142,7 +139,7 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 			_, err = chunkServerClient.ReceiveWriteData(context.Background(),
 				&cs.WriteDataBundle{Data: data[totalBytesWritten : totalBytesWritten+nBytesToWrite], Size: nBytesToWrite, Ch: chunkHandle, Offset: chunkOffset})
 			if err != nil {
-				log.Printf("error when client sending write data to chunk server: %s", err)
+				log.Printf("error when calling ReceiveWriteData: %s", err)
 				replicaReceiveStatus[i] = false
 				continue
 			}
