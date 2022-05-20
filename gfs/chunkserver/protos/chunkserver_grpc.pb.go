@@ -29,7 +29,7 @@ type ChunkServerClient interface {
 	// Commits a mutation operation on primary.
 	PrimaryCommitMutate(ctx context.Context, in *PrimaryCommitMutateRequest, opts ...grpc.CallOption) (*Ack, error)
 	// Commits a mutation operation on secondary.
-	SecondaryCommitMutate(ctx context.Context, in *ChunkHandle, opts ...grpc.CallOption) (*Ack, error)
+	SecondaryCommitMutate(ctx context.Context, in *SecondaryCommitMutateRequest, opts ...grpc.CallOption) (*Ack, error)
 	// Creates a new chunk.
 	CreateNewChunk(ctx context.Context, in *ChunkHandle, opts ...grpc.CallOption) (*Ack, error)
 }
@@ -69,7 +69,7 @@ func (c *chunkServerClient) PrimaryCommitMutate(ctx context.Context, in *Primary
 	return out, nil
 }
 
-func (c *chunkServerClient) SecondaryCommitMutate(ctx context.Context, in *ChunkHandle, opts ...grpc.CallOption) (*Ack, error) {
+func (c *chunkServerClient) SecondaryCommitMutate(ctx context.Context, in *SecondaryCommitMutateRequest, opts ...grpc.CallOption) (*Ack, error) {
 	out := new(Ack)
 	err := c.cc.Invoke(ctx, "/protos.ChunkServer/SecondaryCommitMutate", in, out, opts...)
 	if err != nil {
@@ -98,7 +98,7 @@ type ChunkServerServer interface {
 	// Commits a mutation operation on primary.
 	PrimaryCommitMutate(context.Context, *PrimaryCommitMutateRequest) (*Ack, error)
 	// Commits a mutation operation on secondary.
-	SecondaryCommitMutate(context.Context, *ChunkHandle) (*Ack, error)
+	SecondaryCommitMutate(context.Context, *SecondaryCommitMutateRequest) (*Ack, error)
 	// Creates a new chunk.
 	CreateNewChunk(context.Context, *ChunkHandle) (*Ack, error)
 	mustEmbedUnimplementedChunkServerServer()
@@ -117,7 +117,7 @@ func (UnimplementedChunkServerServer) ReceiveWriteData(context.Context, *WriteDa
 func (UnimplementedChunkServerServer) PrimaryCommitMutate(context.Context, *PrimaryCommitMutateRequest) (*Ack, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PrimaryCommitMutate not implemented")
 }
-func (UnimplementedChunkServerServer) SecondaryCommitMutate(context.Context, *ChunkHandle) (*Ack, error) {
+func (UnimplementedChunkServerServer) SecondaryCommitMutate(context.Context, *SecondaryCommitMutateRequest) (*Ack, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SecondaryCommitMutate not implemented")
 }
 func (UnimplementedChunkServerServer) CreateNewChunk(context.Context, *ChunkHandle) (*Ack, error) {
@@ -191,7 +191,7 @@ func _ChunkServer_PrimaryCommitMutate_Handler(srv interface{}, ctx context.Conte
 }
 
 func _ChunkServer_SecondaryCommitMutate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ChunkHandle)
+	in := new(SecondaryCommitMutateRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -203,7 +203,7 @@ func _ChunkServer_SecondaryCommitMutate_Handler(srv interface{}, ctx context.Con
 		FullMethod: "/protos.ChunkServer/SecondaryCommitMutate",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChunkServerServer).SecondaryCommitMutate(ctx, req.(*ChunkHandle))
+		return srv.(ChunkServerServer).SecondaryCommitMutate(ctx, req.(*SecondaryCommitMutateRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

@@ -5,7 +5,7 @@ import (
 	"gfs/chunkserver"
 	"gfs/client"
 	"gfs/master"
-	test "gfs/test"
+	"gfs/test"
 	"log"
 	"os"
 	"time"
@@ -41,7 +41,7 @@ func main() {
 			defer c.MasterConn.Close()
 			log.Println("Initialized a client")
 
-			// tests.Run(tests.SmallFileTest, c)
+			// test.Run(test.SmallFileTest, c)
 			test.RunRandom(c)
 		}()
 	}

@@ -10,7 +10,7 @@ service ChunkServer {
   // Commits a mutation operation on primary.
   rpc PrimaryCommitMutate(PrimaryCommitMutateRequest) returns (Ack) {}
   // Commits a mutation operation on secondary.
-  rpc SecondaryCommitMutate(ChunkHandle) returns (Ack) {}
+  rpc SecondaryCommitMutate(SecondaryCommitMutateRequest) returns (Ack) {}
   // Creates a new chunk.
   rpc CreateNewChunk(ChunkHandle) returns (Ack) {}
 }
@@ -35,6 +35,12 @@ message ChunkHandle {
 message PrimaryCommitMutateRequest {
   uint64 ch = 1;
   repeated string secondaryChunkServerAddresses = 2;
+  string transactionId = 3;
+}
+
+message SecondaryCommitMutateRequest {
+  uint64 ch = 1;
+  string transactionId = 2;
 }
 
 // A reply message containing an acknowledgement
@@ -48,5 +54,6 @@ message WriteDataBundle {
   int64 size = 2;
   uint64 ch = 3;
   int64 offset = 4;
+  string transactionId = 5;
 }
 

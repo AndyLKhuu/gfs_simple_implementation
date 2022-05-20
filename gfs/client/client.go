@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 )
 
@@ -125,6 +126,8 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 		chunkHandle := getChunkLocationReply.ChunkHandle
 
 		// Client pushes data to all replicas
+		transactionId := uuid.New().String()
+		log.Println(transactionId)
 		replicaReceiveStatus := make([]bool, len(chunkLocations))
 		for i := 0; i < len(chunkLocations); i++ { // TODO: optimize to async
 			chunkServerAddr := chunkLocations[i]
@@ -135,8 +138,9 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 				continue
 			}
 			chunkServerClient := cs.NewChunkServerClient(conn)
+
 			_, err = chunkServerClient.ReceiveWriteData(context.Background(),
-				&cs.WriteDataBundle{Data: data[totalBytesWritten : totalBytesWritten+nBytesToWrite], Size: nBytesToWrite, Ch: chunkHandle, Offset: chunkOffset})
+				&cs.WriteDataBundle{TransactionId: transactionId, Data: data[totalBytesWritten : totalBytesWritten+nBytesToWrite], Size: nBytesToWrite, Ch: chunkHandle, Offset: chunkOffset})
 			if err != nil {
 				log.Printf("error when calling ReceiveWriteData: %s", err)
 				replicaReceiveStatus[i] = false
@@ -156,7 +160,7 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 		}
 		primaryChunkServerClient := cs.NewChunkServerClient(conn)
 		_, err = primaryChunkServerClient.PrimaryCommitMutate(context.Background(),
-			&cs.PrimaryCommitMutateRequest{Ch: chunkHandle, SecondaryChunkServerAddresses: chunkLocations[1:]})
+			&cs.PrimaryCommitMutateRequest{Ch: chunkHandle, SecondaryChunkServerAddresses: chunkLocations[1:], TransactionId: transactionId})
 
 		conn.Close()
 
