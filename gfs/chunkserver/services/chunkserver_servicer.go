@@ -133,6 +133,17 @@ func (s *ChunkServer) CreateNewChunk(ctx context.Context, ch *protos.ChunkHandle
 	return &protos.Ack{Message: "successfully replicated chunk on " + s.Address}, nil
 }
 
+func (s *ChunkServer) RemoveChunk(ctx context.Context, ch *protos.ChunkHandle) (*protos.Ack, error) {
+	chunkHandle := ch.Ch
+	filepath := s.Rootpath + "/" + strconv.FormatUint(uint64(chunkHandle), 10) + ".txt"
+	err := os.Remove(filepath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// TODO update internal DS
+	return &protos.Ack{Message: "successfully removed chunk on " + s.Address}, nil
+}
+
 func (s *ChunkServer) localWriteToFile(transactionId string, path string, data []byte, offset int64) int {
 	file, err := os.OpenFile(path, os.O_WRONLY, 0644)
 	if err != nil {

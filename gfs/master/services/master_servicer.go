@@ -83,10 +83,6 @@ func (s *MasterServer) GetChunkLocation(ctx context.Context, chunkLocReq *protos
 	chunkHandle := s.Files[path][chunkIdx]
 	chunkServerIds := s.Chunks[chunkHandle]
 
-	// return &protos.ChunkLocationReply{ChunkHandle: chunkHandle, ChunkServerIds: chunkServerIds}, nil
-	// chunkHandle := s.Files[path][chunkIdx]
-	// chunkServerIds := s.Chunks[chunkHandle]
-
 	primary, err := s.checkOrCreateLease(chunkHandle, chunkServerIds)
 	if err != nil {
 		return &protos.ChunkLocationReply{}, err
@@ -133,6 +129,7 @@ func (s *MasterServer) CreateFile(ctx context.Context, createReq *protos.FileCre
 	return &protos.Ack{Message: fmt.Sprintf("successfuly created file at path %s", path)}, nil
 }
 
+// WIP
 func (s *MasterServer) RemoveFile(ctx context.Context, removeReq *protos.FileRemoveRequest) (*protos.Ack, error) {
 	path := removeReq.Path
 	e := os.Remove(path)
@@ -140,8 +137,13 @@ func (s *MasterServer) RemoveFile(ctx context.Context, removeReq *protos.FileRem
 		log.Fatal("couldn't Delete File \n")
 	}
 	log.Println("TODO: Implement deleting file across chunk servers.")
-	//TO:DO We also have to remove the file meta data from the in-memory structures on the master
 
+	s.removeChunks(path)
+	//TO:DO We also have to remove the file meta data from the in-memory structures on the master
+	delete(s.Files, path)
+	log.Println("STate of master:")
+
+	log.Println(s)
 	return &protos.Ack{Message: fmt.Sprintf("successfuly deleted file at path %s", path)}, nil
 }
 
@@ -180,4 +182,29 @@ func (s *MasterServer) createNewChunk(path string) int {
 	}
 	s.Files[path] = chunks
 	return 0
+}
+
+func (s *MasterServer) removeChunks(path string) int {
+	chunkHandles := s.Files[path]
+	log.Printf("handles to delete: %d", chunkHandles)
+	for i := 0; i < len(chunkHandles); i++ {
+		chunkHandle := chunkHandles[i]
+		chunkLocations := s.Chunks[chunkHandle]
+		log.Printf("locations to delete: %s", chunkLocations)
+		for j := 0; j < len(chunkLocations); j++ {
+			chunkServerAddr := chunkLocations[j]
+			chunkServerClient := s.ChunkServerClients[chunkServerAddr]
+			res, err := chunkServerClient.RemoveChunk(context.Background(), &cs.ChunkHandle{Ch: chunkHandle})
+			if err != nil {
+				continue // Hmm... what will this error mean? We still want to continue removing chunks from other chunk servers
+			}
+			log.Printf(res.Message)
+		}
+		delete(s.Chunks, chunkHandle)
+		delete(s.chunkHandleSet, chunkHandle)
+		delete(s.leases, chunkHandle)
+		// Todo: update metdata
+
+	}
+	return -1
 }

@@ -13,6 +13,8 @@ service ChunkServer {
   rpc SecondaryCommitMutate(SecondaryCommitMutateRequest) returns (Ack) {}
   // Creates a new chunk.
   rpc CreateNewChunk(ChunkHandle) returns (Ack) {}
+  // Delete a chunk
+  rpc RemoveChunk(ChunkHandle) returns (Ack) {}
   // Receive a lease for a chunk
   rpc ReceiveLease(LeaseBundle) returns (Ack) {}
 }

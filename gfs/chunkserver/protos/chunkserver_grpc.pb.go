@@ -32,6 +32,8 @@ type ChunkServerClient interface {
 	SecondaryCommitMutate(ctx context.Context, in *SecondaryCommitMutateRequest, opts ...grpc.CallOption) (*Ack, error)
 	// Creates a new chunk.
 	CreateNewChunk(ctx context.Context, in *ChunkHandle, opts ...grpc.CallOption) (*Ack, error)
+	// Delete a chunk
+	RemoveChunk(ctx context.Context, in *ChunkHandle, opts ...grpc.CallOption) (*Ack, error)
 	// Receive a lease for a chunk
 	ReceiveLease(ctx context.Context, in *LeaseBundle, opts ...grpc.CallOption) (*Ack, error)
 }
@@ -89,6 +91,15 @@ func (c *chunkServerClient) CreateNewChunk(ctx context.Context, in *ChunkHandle,
 	return out, nil
 }
 
+func (c *chunkServerClient) RemoveChunk(ctx context.Context, in *ChunkHandle, opts ...grpc.CallOption) (*Ack, error) {
+	out := new(Ack)
+	err := c.cc.Invoke(ctx, "/protos.ChunkServer/RemoveChunk", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *chunkServerClient) ReceiveLease(ctx context.Context, in *LeaseBundle, opts ...grpc.CallOption) (*Ack, error) {
 	out := new(Ack)
 	err := c.cc.Invoke(ctx, "/protos.ChunkServer/ReceiveLease", in, out, opts...)
@@ -112,6 +123,8 @@ type ChunkServerServer interface {
 	SecondaryCommitMutate(context.Context, *SecondaryCommitMutateRequest) (*Ack, error)
 	// Creates a new chunk.
 	CreateNewChunk(context.Context, *ChunkHandle) (*Ack, error)
+	// Delete a chunk
+	RemoveChunk(context.Context, *ChunkHandle) (*Ack, error)
 	// Receive a lease for a chunk
 	ReceiveLease(context.Context, *LeaseBundle) (*Ack, error)
 	mustEmbedUnimplementedChunkServerServer()
@@ -135,6 +148,9 @@ func (UnimplementedChunkServerServer) SecondaryCommitMutate(context.Context, *Se
 }
 func (UnimplementedChunkServerServer) CreateNewChunk(context.Context, *ChunkHandle) (*Ack, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateNewChunk not implemented")
+}
+func (UnimplementedChunkServerServer) RemoveChunk(context.Context, *ChunkHandle) (*Ack, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemoveChunk not implemented")
 }
 func (UnimplementedChunkServerServer) ReceiveLease(context.Context, *LeaseBundle) (*Ack, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReceiveLease not implemented")
@@ -242,6 +258,24 @@ func _ChunkServer_CreateNewChunk_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChunkServer_RemoveChunk_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ChunkHandle)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChunkServerServer).RemoveChunk(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/protos.ChunkServer/RemoveChunk",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChunkServerServer).RemoveChunk(ctx, req.(*ChunkHandle))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ChunkServer_ReceiveLease_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(LeaseBundle)
 	if err := dec(in); err != nil {
@@ -286,6 +320,10 @@ var ChunkServer_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateNewChunk",
 			Handler:    _ChunkServer_CreateNewChunk_Handler,
+		},
+		{
+			MethodName: "RemoveChunk",
+			Handler:    _ChunkServer_RemoveChunk_Handler,
 		},
 		{
 			MethodName: "ReceiveLease",
