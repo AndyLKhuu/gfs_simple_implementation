@@ -7,9 +7,10 @@ import (
 	"os"
 	"strconv"
 	"time"
+
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/grpc"
 )
 
 // TO:DO Find better naming than ch for chunkhandle messages
@@ -18,10 +19,10 @@ var chunkServerTempDirectoryPath = "../temp_dfs_storage/"
 
 type ChunkServer struct {
 	protos.UnimplementedChunkServerServer
-	ChunkHandleToFile map[uint64]string // Chunkhandle to filepath of chunk
-	Rootpath          string            // Root directory path for chunkserver
-	Address           string            // Address of chunkserver
-	WriteCache 				map[uint64]*protos.WriteDataBundle // Internal "LRU" 
+	ChunkHandleToFile map[uint64]string                  // Chunkhandle to filepath of chunk
+	Rootpath          string                             // Root directory path for chunkserver
+	Address           string                             // Address of chunkserver
+	WriteCache        map[uint64]*protos.WriteDataBundle // Internal "LRU"
 }
 
 func (s *ChunkServer) Read(ctx context.Context, readReq *protos.ReadRequest) (*protos.ReadReply, error) {
@@ -38,7 +39,7 @@ func (s *ChunkServer) ReceiveWriteData(ctx context.Context, writeBundle *protos.
 func (s *ChunkServer) PrimaryCommitMutate(ctx context.Context, primaryCommitMutateRequest *protos.PrimaryCommitMutateRequest) (*protos.Ack, error) {
 	chunkHandle := primaryCommitMutateRequest.Ch
 	secondaryChunkServerAddresses := primaryCommitMutateRequest.SecondaryChunkServerAddresses
-	for i := 0; i < len(secondaryChunkServerAddresses); i++ { // Should we async this instead of sequential?
+	for i := 0; i < len(secondaryChunkServerAddresses); i++ { // TODO: optimize to async
 		secondaryChunkServerAddr := secondaryChunkServerAddresses[i]
 		conn, err := grpc.Dial(secondaryChunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure()) // connecting to secondary chunk server
 		defer conn.Close()
@@ -48,7 +49,7 @@ func (s *ChunkServer) PrimaryCommitMutate(ctx context.Context, primaryCommitMuta
 		}
 
 		// Primary forwards commit request to secondary
-		secondaryChunkServerClient := protos.NewChunkServerClient(conn);
+		secondaryChunkServerClient := protos.NewChunkServerClient(conn)
 		_, err = secondaryChunkServerClient.SecondaryCommitMutate(context.Background(), &protos.ChunkHandle{Ch: chunkHandle})
 		if err != nil {
 			log.Printf("error occured on secondaryCommitMutate %s", err)
@@ -57,14 +58,14 @@ func (s *ChunkServer) PrimaryCommitMutate(ctx context.Context, primaryCommitMuta
 		// TODO: If there is an error, do we want to roll back the secondary's commit?
 	}
 
-	// Primary commits 
+	// Primary commits
 	path := chunkServerTempDirectoryPath + s.Address + "/" + strconv.FormatUint(chunkHandle, 10)
-	file, err := os.OpenFile(path, os.O_WRONLY, 0644) 
+	file, err := os.OpenFile(path, os.O_WRONLY, 0644)
 	if err != nil {
 		return &protos.Ack{}, status.Errorf(codes.InvalidArgument, "Error opening file to write in primaryCS")
 	}
 	data := s.WriteCache[chunkHandle].Data
-	offset :=  s.WriteCache[chunkHandle].Offset
+	offset := s.WriteCache[chunkHandle].Offset
 
 	file.WriteAt(data, offset)
 	delete(s.WriteCache, chunkHandle)
@@ -74,8 +75,8 @@ func (s *ChunkServer) PrimaryCommitMutate(ctx context.Context, primaryCommitMuta
 
 func (s *ChunkServer) SecondaryCommitMutate(ctx context.Context, ch *protos.ChunkHandle) (*protos.Ack, error) {
 	chunkHandle := ch.Ch
-	path := chunkServerTempDirectoryPath + s.Address + "/" + strconv.FormatUint(chunkHandle, 10)
-	file, err := os.OpenFile(path, os.O_WRONLY, 0644) 
+	path := chunkServerTempDirectoryPath + s.Address + "/" + strconv.FormatUint(chunkHandle, 10) + ".txt"
+	file, err := os.OpenFile(path, os.O_WRONLY, 0644)
 	if err != nil {
 		return &protos.Ack{}, status.Errorf(codes.InvalidArgument, "Error opening file to write in secondaryCS") // change
 	}
@@ -89,7 +90,7 @@ func (s *ChunkServer) SecondaryCommitMutate(ctx context.Context, ch *protos.Chun
 
 func (s *ChunkServer) CreateNewChunk(ctx context.Context, ch *protos.ChunkHandle) (*protos.Ack, error) {
 	chunkHandle := ch.Ch
-	filepath := s.Rootpath + "/" + strconv.FormatUint(uint64(chunkHandle), 10)
+	filepath := s.Rootpath + "/" + strconv.FormatUint(uint64(chunkHandle), 10) + ".txt"
 
 	_, err := os.Create(filepath)
 	if err != nil {

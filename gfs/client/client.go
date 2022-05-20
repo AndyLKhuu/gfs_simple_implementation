@@ -104,20 +104,20 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 
 	totalBytesWritten := int64(0)
 	remainingBytesToWrite := int64(len(data))
-	for dataOffset := offset + int64(0); dataOffset < offset+int64(len(data)); {
+	for dataOffset := offset + 0; dataOffset < offset+int64(len(data)); {
 
 		chunkIdx := int32(dataOffset / chunkSize)
 		chunkOffset := int64(dataOffset) % chunkSize
 		remainingChunkSpace := chunkSize - chunkOffset
 
 		// Calculate max number of bytes to write
-		nBytesToWrite := chunkSize
+		nBytesToWrite := remainingBytesToWrite
 		if remainingChunkSpace < nBytesToWrite {
 			nBytesToWrite = remainingChunkSpace
 		}
-		if remainingBytesToWrite < nBytesToWrite {
-			nBytesToWrite = remainingBytesToWrite
-		}
+		// if remainingBytesToWrite < nBytesToWrite {
+		// 	nBytesToWrite = remainingBytesToWrite
+		// }
 
 		getChunkLocationReply, err := masterClient.GetChunkLocation(context.Background(), &protos.ChunkLocationRequest{Path: path, ChunkIdx: chunkIdx})
 		if err != nil {
@@ -125,13 +125,12 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 			return -1
 		}
 
-		// log.Printf("Here A")
 		chunkLocations := getChunkLocationReply.ChunkServerIds
 		chunkHandle := getChunkLocationReply.ChunkHandle
 
-		// Client pushses data to all replicas
+		// Client pushes data to all replicas
 		replicaReceiveStatus := make([]bool, len(chunkLocations))
-		for i := 0; i < len(chunkLocations); i++ { // Should we async this instead of sequential?
+		for i := 0; i < len(chunkLocations); i++ { // TODO: optimize to async
 			chunkServerAddr := chunkLocations[i]
 			conn, err := grpc.Dial(chunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure())
 			if err != nil {

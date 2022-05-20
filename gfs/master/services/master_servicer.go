@@ -33,16 +33,16 @@ func (s *MasterServer) SendHeartBeatMessage(ctx context.Context, cid *protos.Chu
 
 func (s *MasterServer) GetChunkLocation(ctx context.Context, chunkLocReq *protos.ChunkLocationRequest) (*protos.ChunkLocationReply, error) {
 	path := chunkLocReq.Path
-	chunkIdx := chunkLocReq.ChunkIdx;
+	chunkIdx := chunkLocReq.ChunkIdx
 
 	// Generate new chunks up to the chunkIdx we want. Question: do we want our FS to support files with gaps?
-	for (int32(len(s.Files[path])) < chunkIdx + 1) {
+	for int32(len(s.Files[path])) < chunkIdx+1 {
 		s.createNewChunk(path)
 	}
-	chunkHandle := s.Files[path][chunkIdx] 
+	chunkHandle := s.Files[path][chunkIdx]
 	chunkServerIds := s.Chunks[chunkHandle]
 
-	return &protos.ChunkLocationReply{ChunkHandle: chunkHandle, ChunkServerIds: chunkServerIds}, nil 
+	return &protos.ChunkLocationReply{ChunkHandle: chunkHandle, ChunkServerIds: chunkServerIds}, nil
 }
 
 func (s *MasterServer) GetSystemChunkSize(ctx context.Context, sysChunkSizeReq *protos.SystemChunkSizeRequest) (*protos.ChunkSize, error) {
@@ -63,30 +63,28 @@ func (s *MasterServer) CreateFile(ctx context.Context, createReq *protos.FileCre
 		return &protos.Ack{Message: fmt.Sprintf("failed to create file at path %s", path)}, e
 	}
 
-	// ch := s.generateChunkHandle()
-
 	numChunkServers := len(s.ChunkServerClients)
-	// TO:DO Have better replication factor check (> n/2?) // I feel like this should be a boot up checker and doesnt need to be performed every time we create a file. 
+	// TO:DO Have better replication factor check (> n/2?)
 	if int(repFactor) > numChunkServers || repFactor < 1 {
 		return &protos.Ack{Message: "Replication Factor is Invalid"}, errors.New("Invalid Replication Factor Value")
 	}
 
-	createNewChunkStatus := s.createNewChunk(path);
-	if (createNewChunkStatus == -1) {
+	createNewChunkStatus := s.createNewChunk(path)
+	if createNewChunkStatus == -1 {
 		return &protos.Ack{Message: "Error creating new chunk"}, errors.New("Error creating new chunk")
 	}
 
 	return &protos.Ack{Message: fmt.Sprintf("successfuly created file at path %s", path)}, nil
 }
 
-func (s *MasterServer) RemoveFile(ctx context.Context, removeReq *protos.FileRemoveRequest) (*protos.Ack, error) {	
+func (s *MasterServer) RemoveFile(ctx context.Context, removeReq *protos.FileRemoveRequest) (*protos.Ack, error) {
 	path := removeReq.Path
 	e := os.Remove(path)
 	if e != nil {
 		log.Fatal("couldn't Delete File \n")
 	}
 	log.Println("TODO: Implement deleting file across chunk servers.")
- 	//TO:DO We also have to remove the file meta data from the in-memory structures on the master
+	//TO:DO We also have to remove the file meta data from the in-memory structures on the master
 
 	return &protos.Ack{Message: fmt.Sprintf("successfuly deleted file at path %s", path)}, nil
 }
@@ -101,7 +99,7 @@ func (s *MasterServer) generateChunkHandle() uint64 {
 	return ch
 }
 
-func (s *MasterServer) createNewChunk(path string)  int {
+func (s *MasterServer) createNewChunk(path string) int {
 	ch := s.generateChunkHandle()
 	chunks := append(s.Files[path], ch)
 	// Choose REPFACTOR servers
@@ -119,4 +117,3 @@ func (s *MasterServer) createNewChunk(path string)  int {
 	s.Files[path] = chunks
 	return 0
 }
-
