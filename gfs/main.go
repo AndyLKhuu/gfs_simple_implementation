@@ -42,6 +42,7 @@ func main() {
 			log.Println("Initialized a client")
 
 			// test.Run(test.SmallFileTest, c)
+			// test.RunAll(c)
 			test.RunRandom(c)
 		}()
 	}

@@ -21,11 +21,20 @@ func Run(fn func(c *client.Client), c *client.Client) {
 	fn(c)
 }
 
+// Run a random test
 func RunRandom(c *client.Client) {
 	seed := rand.NewSource(time.Now().UnixNano())
 	random := rand.New(seed)
 	fn := testPool[(random.Intn(len(testPool)))]
 	fn(c)
+}
+
+// Run all tests
+func RunAll(c *client.Client) {
+	for i := 0; i < len(testPool); i++ {
+		fn := testPool[i]
+		fn(c)
+	}
 }
 
 // Run a random test
