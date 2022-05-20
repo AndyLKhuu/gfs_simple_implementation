@@ -46,7 +46,7 @@ func (s *MasterServer) checkOrCreateLease(ch uint64, chunkServers []string) (str
 		if err != nil {
 			return "", err
 		}
-		log.Print(res.Msg)
+		log.Print(res.Message)
 		return lease.primary, nil
 	}
 	return l.primary, nil
@@ -60,7 +60,7 @@ func (s *MasterServer) renewLease(ch uint64, addr string) error {
 	}
 
 	if l.primary != addr {
-		return errors.New(fmt.Sprint("given chunkserver %s does not own a lease on chunk %d.", addr, ch))
+		return errors.New(fmt.Sprintf("given chunkserver %s does not own a lease on chunk %d.", addr, ch))
 	}
 
 	l.endTime = time.Now().Add(60 * time.Second)
@@ -75,6 +75,11 @@ func (s *MasterServer) SendHeartBeatMessage(ctx context.Context, cid *protos.Chu
 func (s *MasterServer) GetChunkLocation(ctx context.Context, chunkLocReq *protos.ChunkLocationRequest) (*protos.ChunkLocationReply, error) {
 	path := chunkLocReq.Path
 	chunkIdx := chunkLocReq.ChunkIdx
+
+	// Generate new chunks up to the chunkIdx we want. Question: do we want our FS to support files with gaps?
+	for int32(len(s.Files[path])) < chunkIdx+1 {
+		s.createNewChunk(path)
+	}
 	chunkHandle := s.Files[path][chunkIdx]
 	chunkServerIds := s.Chunks[chunkHandle]
 
@@ -111,31 +116,16 @@ func (s *MasterServer) CreateFile(ctx context.Context, createReq *protos.FileCre
 		return &protos.Ack{Message: fmt.Sprintf("failed to create file at path %s", path)}, e
 	}
 
-	ch := s.generateChunkHandle()
-	fmt.Printf("created chunk with chunk handle %d \n", ch)
-	chunks := append(s.Files[path], ch)
-
-	// Replicate empty chunks
 	numChunkServers := len(s.ChunkServerClients)
 	// TO:DO Have better replication factor check (> n/2?)
 	if int(repFactor) > numChunkServers || repFactor < 1 {
 		return &protos.Ack{Message: "Replication Factor is Invalid"}, errors.New("Invalid Replication Factor Value")
 	}
 
-	// Choose REPFACTOR servers
-	// TO:DO Choose replication servers to maximize throughoupt and ensure load balancing
-	for k, v := range s.ChunkServerClients {
-		res, err := v.CreateNewChunk(context.Background(), &cs.ChunkHandle{Ch: ch})
-		if err != nil {
-			s.Chunks[ch] = []string{}
-			return &protos.Ack{Message: fmt.Sprintf("failed to create file at path %s", path)}, err
-		}
-		log.Printf(res.Msg)
-
-		s.Chunks[ch] = append(s.Chunks[ch], k)
+	createNewChunkStatus := s.createNewChunk(path)
+	if createNewChunkStatus == -1 {
+		return &protos.Ack{Message: "Error creating new chunk"}, errors.New("Error creating new chunk")
 	}
-
-	s.Files[path] = chunks
 	return &protos.Ack{Message: fmt.Sprintf("successfuly created file at path %s", path)}, nil
 }
 
@@ -156,7 +146,7 @@ func (s *MasterServer) RenewChunkLease(ctx context.Context, req *protos.RenewChu
 	if err != nil {
 		return &protos.Ack{}, err
 	}
-	return &protos.Ack{Message: fmt.Sprintf("successfully renewed lease for chunk %d", ch.Ch)}, nil
+	return &protos.Ack{Message: fmt.Sprintf("successfully renewed lease for chunk %d", req.Ch)}, nil
 }
 
 // Generate a unique chunkhandle.
@@ -167,4 +157,23 @@ func (s *MasterServer) generateChunkHandle() uint64 {
 	}
 	s.chunkHandleSet[ch] = true
 	return ch
+}
+
+func (s *MasterServer) createNewChunk(path string) int {
+	ch := s.generateChunkHandle()
+	chunks := append(s.Files[path], ch)
+	// Choose REPFACTOR servers
+	// TO:DO Choose replication servers to maximize throughoupt and ensure load balancing
+	for k, v := range s.ChunkServerClients {
+		res, err := v.CreateNewChunk(context.Background(), &cs.ChunkHandle{Ch: ch})
+		if err != nil {
+			s.Chunks[ch] = []string{}
+			return -1
+		}
+		log.Printf(res.Message)
+
+		s.Chunks[ch] = append(s.Chunks[ch], k)
+	}
+	s.Files[path] = chunks
+	return 0
 }

@@ -3,8 +3,9 @@ package main
 import (
 	"fmt"
 	"gfs/chunkserver"
-	"gfs/master"
 	"gfs/client"
+	"gfs/master"
+	"gfs/test"
 	"log"
 	"os"
 	"time"
@@ -31,26 +32,18 @@ func main() {
 
 	time.Sleep(2 * time.Second) //Arbitrary Number
 
-	fmt.Println("-------");
+	fmt.Println("-------")
 
 	// Start up Clients
 	for i := 0; i < NUM_CLIENTS; i++ {
-		go func () {
-			c := client.InitClient(masterServerPort) 
-			defer c.MasterConn.Close();
-			log.Println("Initialized a client");
-			fname := shared_file_path + "test.txt";
-			c.Create(fname);
+		go func() {
+			c := client.InitClient(masterServerPort)
+			defer c.MasterConn.Close()
+			log.Println("Initialized a client")
 
-
-			// e2e simple read test.
-			readBuffer := make([]byte, 7)
-			c.Read(fname, 0, readBuffer);
-			log.Printf("Successful read result: %s", string(readBuffer))
-
-			// var str = "hello";
-			// c.Write(fname, 0, []byte(str));
-			// c.Remove(fname); // careful using this when implementing chunk server repl.
+			// test.Run(test.LargeFileTest, c)
+			// test.RunAll(c)
+			test.RunRandom(c)
 		}()
 	}
 
