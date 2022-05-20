@@ -1,6 +1,8 @@
 # gfs_simple_implementation
 
 # TO:DO 
+
+Andy: 
 - Explore using Bazel
 - Add more complex synchronization mechanism to check for completion of Master/Chunkserver Initialization
 - Security
@@ -15,3 +17,11 @@
 - Optimize generateChunkHandle() such that it is resilience and deterministic under heavy load.
 - Add function to cleanly and safely destruct everything. (memory, files, etc)
 - Upgrade Lock Manager to support directories
+
+Vincent:
+- Optimization: async forwarding of commitReq from primaryCS to secondaryCS
+- Optimization: async sending writeData from client to all replicas
+- Observational/tedious: Not sure if our data types are sloppy but there seems to be a lot of type-casting between int, int32, uint64, and int64. Fixable?
+- Benchmarking
+- More consistent/systematic logging -> consider how logging IO affect benchmarking data when longers program paths have more logs (can we turn off with a flag?) [Mentioned by Andy] 
+- Look into more sysematic workload/test generation in test.go
