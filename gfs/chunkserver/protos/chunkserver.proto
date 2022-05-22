@@ -42,7 +42,7 @@ message PrimaryCommitMutateRequest {
 
 message SecondaryCommitMutateRequest {
   uint64 ch = 1;
-  string transactionId = 2;
+  repeated string txIds = 2;
 }
 
 // A reply message containing an acknowledgement

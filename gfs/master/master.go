@@ -15,7 +15,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-// TO:DO Better name + Propagate as global variable
 var shared_file_path = "../temp_dfs_storage/shared"
 
 type ChunkServerConfig struct {

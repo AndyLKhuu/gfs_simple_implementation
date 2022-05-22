@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"gfs/chunkserver"
-	"gfs/client"
 	"gfs/master"
 	"gfs/test"
 	"log"
@@ -34,20 +33,27 @@ func main() {
 
 	fmt.Println("-------")
 
-	// Start up Clients
-	for i := 0; i < NUM_CLIENTS; i++ {
-		go func() {
-			c := client.InitClient(masterServerPort)
-			defer c.MasterConn.Close()
-			log.Println("Initialized a client")
+	// TO:DO It doesn't make sense for the tests to be run in a go routine
+	// TO:DO I think the next big task is to clean up and define how we want to do tests.
+	// // Start up Clients
+	// for i := 0; i < NUM_CLIENTS; i++ {
+	// 	go func() {
+	// 		c, err := client.NewClient(masterServerPort)
+	// 		if err != nil {
+	// 			log.Printf("failed to initialize client %s", err)
+	// 		}
+	// 		defer c.MasterConn.Close()
+	// 		log.Println("Initialized a client")
 
-			test.Run(test.WriteReadSmallFileTest, c)
-			test.Run(test.WriteReadMediumFileTest, c)
-			test.Run(test.WriteReadLargeFileTest, c)
-			test.Run(test.WriteReadLargeFileOffsettedTest, c)
-		}()
-	}
+	// 		test.Run(test.WriteReadSmallFileTest, c)
+	// 		test.Run(test.WriteReadMediumFileTest, c)
+	// 		test.Run(test.WriteReadLargeFileTest, c)
+	// 		test.Run(test.WriteReadLargeFileOffsettedTest, c)
+	// 	}()
+	// }
 
+	// test.MultipleClients_SimpleCreateWriteAndRead()
+	test.MultipleClients_OverlappingWrites()
 	log.Println("Done.")
 	select {}
 }

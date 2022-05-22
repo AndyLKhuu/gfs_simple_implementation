@@ -15,10 +15,11 @@ import (
 type Client struct {
 	MasterConn   *grpc.ClientConn     // used to later close connection
 	MasterClient *protos.MasterClient // used to invoke RPCs
+	ChunkSize    int64                // The chunksize of the filesystem.
 }
 
 // Initializes a new Client. Pass in master's identifier to link Client to master
-func InitClient(mAddr string) *Client {
+func NewClient(mAddr string) (*Client, error) {
 	var conn *grpc.ClientConn
 	conn, err := grpc.Dial(mAddr, grpc.WithInsecure())
 	if err != nil {
@@ -27,11 +28,18 @@ func InitClient(mAddr string) *Client {
 
 	c := protos.NewMasterClient(conn)
 
+	getSystemChunkSizeReply, err := c.GetSystemChunkSize(context.Background(), &protos.SystemChunkSizeRequest{})
+	if err != nil {
+		log.Printf("error when calling GetSystemChunkSize: %s", err)
+		return &Client{}, err
+	}
+
 	client := new(Client)
 	client.MasterConn = conn
 	client.MasterClient = &c
+	client.ChunkSize = getSystemChunkSizeReply.Size
 
-	return client
+	return client, nil
 }
 
 func (client *Client) Create(path string) int {
@@ -58,17 +66,7 @@ func (client *Client) Remove(path string) int {
 
 func (client *Client) Read(path string, offset int64, data []byte) int {
 	masterClient := *(client.MasterClient)
-	getSystemChunkSizeReply, err := masterClient.GetSystemChunkSize(context.Background(), &protos.SystemChunkSizeRequest{})
-	if err != nil {
-		log.Printf("error when calling GetSystemChunkSize: %s", err)
-		return -1
-	}
-
-	chunkSize := getSystemChunkSizeReply.Size
-
-	totalBytesToRead := len(data)
-	log.Printf("Total bytes to read: %d", totalBytesToRead)
-
+	chunkSize := client.ChunkSize
 	totalBytesRead := int64(0)
 	remainingBytesToRead := int64(len(data))
 	for dataOffset := offset; dataOffset < offset+int64(len(data)); {
@@ -112,17 +110,7 @@ func (client *Client) Read(path string, offset int64, data []byte) int {
 
 func (client *Client) Write(path string, offset int64, data []byte) int {
 	masterClient := *(client.MasterClient)
-	getSystemChunkSizeReply, err := masterClient.GetSystemChunkSize(context.Background(), &protos.SystemChunkSizeRequest{})
-	if err != nil {
-		log.Printf("error when calling GetSystemChunkSize: %s", err)
-		return -1
-	}
-
-	chunkSize := getSystemChunkSizeReply.Size // For testing, we are curently treating SIZE as number of bytes
-
-	totalBytesToWrite := len(data)
-	log.Printf("Total bytes to write: %d", totalBytesToWrite)
-
+	chunkSize := client.ChunkSize
 	totalBytesWritten := int64(0)
 	remainingBytesToWrite := int64(len(data))
 	for dataOffset := offset; dataOffset < offset+int64(len(data)); {
@@ -158,6 +146,7 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 			}
 			chunkServerClient := cs.NewChunkServerClient(conn)
 
+			// TO:DO Repush data on failure
 			_, err = chunkServerClient.ReceiveWriteData(context.Background(),
 				&cs.WriteDataBundle{TransactionId: transactionId, Data: data[totalBytesWritten : totalBytesWritten+nBytesToWrite], Size: nBytesToWrite, Ch: chunkHandle, Offset: chunkOffset})
 			if err != nil {
@@ -168,10 +157,9 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 			replicaReceiveStatus[i] = true
 			conn.Close()
 		}
-		// Do we need to resend writeData to failed nodes?
 
 		// Client tells primary to commit
-		primaryChunkServerAddr := chunkLocations[0]
+		primaryChunkServerAddr := getChunkLocationReply.Primary
 		conn, err := grpc.Dial(primaryChunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure())
 		if err != nil {
 			log.Printf("error when client connecting to primary chunk server: %s", err)
