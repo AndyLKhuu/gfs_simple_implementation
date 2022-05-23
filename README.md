@@ -31,20 +31,6 @@ Andy:
 - FIX up IO usage in repo. (IO usage is very coupled into our code, it shouldn't be)
 - Update transactionIds -> txids
 
-
-=========== THIS PR ===========
-- Remove unnecessary prints on errors as we already will log them if we handle the error correctly
-- Remove extraneous success prints
-- Add TO:DOs for us to clean up code
-- Update localWriteToFile() to return an error.
-- Update naming of InitClient -> NewClient() to make our the naming of our initialization functions uniform. 
-    - Added the ChunkSize retrieval to occur at Client Initialization instead of happening everytime a read or write occurs.
-- Support Concurrent Writes through batching.
-- Should we have interleaved write requests to the primary block until the batch write completes? Or return a message for the client to ask again later?
-    - Currently having them block
-- Start a more uniform and standardized testing suite
-
-
 Vincent:
 - Optimization: async forwarding of commitReq from primaryCS to secondaryCS
 - Optimization: async sending writeData from client to all replicas
