@@ -156,7 +156,6 @@ func (s *ChunkServer) ReceiveLease(ctx context.Context, l *protos.LeaseBundle) (
 
 func (s *ChunkServer) applyMutations(mutationOrder []string, chunkHandle uint64) error {
 	path := chunkServerTempDirectoryPath + s.Address + "/" + strconv.FormatUint(chunkHandle, 10) + ".txt"
-	log.Printf("size of num mutations = %d", len(mutationOrder))
 	for _, txId := range mutationOrder {
 		bundle, ok := s.WriteCache[txId]
 		// TO:DO Fix this really hacky way to wait for data to be transmitted to secondary.
@@ -180,7 +179,6 @@ func (s *ChunkServer) localWriteToFile(transactionId string, path string, data [
 		return err
 	}
 
-	log.Printf("writing %s at %d", string(data), offset)
 	_, err = file.WriteAt(data, offset)
 	if err != nil {
 		return err

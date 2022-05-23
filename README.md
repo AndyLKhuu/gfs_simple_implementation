@@ -28,6 +28,9 @@ Andy:
 - Organize the grpc messages members (repeated types, bytes, strings, int, uints, bool)
 - We need to check on what happens when you do overlapping creates(), we should prevent this.
 - We should have tests for every publicly exposed function
+- FIX up IO usage in repo. (IO usage is very coupled into our code, it shouldn't be)
+- Update transactionIds -> txids
+
 
 =========== THIS PR ===========
 - Remove unnecessary prints on errors as we already will log them if we handle the error correctly
@@ -39,10 +42,7 @@ Andy:
 - Support Concurrent Writes through batching.
 - Should we have interleaved write requests to the primary block until the batch write completes? Or return a message for the client to ask again later?
     - Currently having them block
-
-=========== THIS PR's TO:DO ===========
-- Update transactionIds -> txids
-
+- Start a more uniform and standardized testing suite
 
 
 Vincent:

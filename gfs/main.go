@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"gfs/chunkserver"
 	"gfs/master"
-	"gfs/test"
 	"log"
 	"os"
 	"time"
@@ -33,8 +32,7 @@ func main() {
 
 	fmt.Println("-------")
 
-	// TO:DO It doesn't make sense for the tests to be run in a go routine
-	// TO:DO I think the next big task is to clean up and define how we want to do tests.
+	// We are purposely leaving this uncommented code in for now as we transition to a more defined testing suite.
 	// // Start up Clients
 	// for i := 0; i < NUM_CLIENTS; i++ {
 	// 	go func() {
@@ -52,8 +50,6 @@ func main() {
 	// 	}()
 	// }
 
-	// test.MultipleClients_SimpleCreateWriteAndRead()
-	test.MultipleClients_OverlappingWrites()
 	log.Println("Done.")
 	select {}
 }
