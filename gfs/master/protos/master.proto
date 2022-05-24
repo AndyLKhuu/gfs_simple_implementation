@@ -60,7 +60,6 @@ message ChunkLocationRequest {
 }
 
 // The reply message for a file's chunk handler and its replica locations.
-// TO:DO Update Message to distinguish the primary chunkserver ID
 message ChunkLocationReply {
   uint64 chunkHandle = 1;
   string primary = 2;

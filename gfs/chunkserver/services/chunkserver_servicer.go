@@ -8,12 +8,11 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"google.golang.org/grpc"
 )
-
-// TO:DO Find better naming than ch for chunkhandle messages
 
 var chunkServerTempDirectoryPath = "../temp_dfs_storage/"
 
@@ -24,11 +23,15 @@ type ChunkServer struct {
 	Address           string                             // Address of chunkserver
 	WriteCache        map[string]*protos.WriteDataBundle // Internal "LRU"
 	leases            map[uint64]int64                   // Chunkhandle to end time of lease
+	pendingChunkTxs   map[uint64][]string                // Chunkhandle to list of pending transactions
+	completedTxs      map[string]bool                    // Set of completed transactions
+	inProgressTxs     map[string]bool                    // Set of transactions currently in progress
+	pendingTxsLock    sync.Mutex                         // Lock for pending Txs list
 }
 
 func NewChunkServer(addr string) ChunkServer {
-	chunkserverRootDir := chunkServerTempDirectoryPath + addr
 	fmt.Println("starting up chunkserver " + addr + ".")
+	chunkserverRootDir := chunkServerTempDirectoryPath + addr
 	if err := os.MkdirAll(chunkserverRootDir, os.ModePerm); err != nil {
 		// TO:DO This shouldn't really fatally crash the program, it's just one program
 		log.Fatal(err)
@@ -39,11 +42,14 @@ func NewChunkServer(addr string) ChunkServer {
 		Rootpath:          chunkserverRootDir,
 		Address:           addr,
 		WriteCache:        make(map[string]*protos.WriteDataBundle),
-		leases:            make(map[uint64]int64)}
+		leases:            make(map[uint64]int64),
+		pendingChunkTxs:   make(map[uint64][]string),
+		completedTxs:      make(map[string]bool),
+		inProgressTxs:     make(map[string]bool),
+		pendingTxsLock:    sync.Mutex{}}
 }
 
 func (s *ChunkServer) Read(ctx context.Context, readReq *protos.ReadRequest) (*protos.ReadReply, error) {
-
 	chunkHandle := readReq.Ch
 	leftBound := readReq.L
 	rightBound := readReq.R
@@ -64,26 +70,37 @@ func (s *ChunkServer) Read(ctx context.Context, readReq *protos.ReadRequest) (*p
 }
 
 func (s *ChunkServer) ReceiveWriteData(ctx context.Context, writeBundle *protos.WriteDataBundle) (*protos.Ack, error) {
-	// ChunkServer stores write data in internal LRU
 	transactionId := writeBundle.TransactionId
+	ch := writeBundle.Ch
 	s.WriteCache[transactionId] = writeBundle
-	log.Printf("Chunkserver %s successfully received write data", s.Address)
+	s.pendingTxsLock.Lock()
+	s.pendingChunkTxs[ch] = append(s.pendingChunkTxs[ch], transactionId)
+	s.pendingTxsLock.Unlock()
 	return &protos.Ack{Message: "Chunkserver " + s.Address + " successfully received write data."}, nil
 }
 
 func (s *ChunkServer) PrimaryCommitMutate(ctx context.Context, primaryCommitMutateRequest *protos.PrimaryCommitMutateRequest) (*protos.Ack, error) {
-	// Primary commits
 	chunkHandle := primaryCommitMutateRequest.Ch
 	transactionId := primaryCommitMutateRequest.TransactionId
 
-	path := chunkServerTempDirectoryPath + s.Address + "/" + strconv.FormatUint(chunkHandle, 10) + ".txt"
-	data := s.WriteCache[transactionId].Data
-	offset := s.WriteCache[transactionId].Offset
-	status := s.localWriteToFile(transactionId, path, data, offset)
-	if status == -1 {
-		return &protos.Ack{}, errors.New("Error opening file to write in primaryCS")
+	// TO:DO Fix coarse locking.
+	s.pendingTxsLock.Lock()
+	if s.completedTxs[transactionId] {
+		s.pendingTxsLock.Unlock()
+		return &protos.Ack{Message: "Primary chunkserver " + s.Address + " successfully committed and forwarded"}, nil
 	}
-	log.Printf("Primary chunkserver %s successfully committed", s.Address)
+
+	// Serialize all mutations in some order
+	mutations := s.pendingChunkTxs[chunkHandle]
+	serialOrder := []string{}
+	for _, txId := range mutations {
+		serialOrder = append(serialOrder, txId)
+		delete(s.inProgressTxs, txId)
+		s.completedTxs[txId] = true
+	}
+
+	// Primary Commits
+	s.applyMutations(serialOrder, chunkHandle)
 
 	// Forward request to secondaries
 	secondaryChunkServerAddresses := primaryCommitMutateRequest.SecondaryChunkServerAddresses
@@ -92,34 +109,30 @@ func (s *ChunkServer) PrimaryCommitMutate(ctx context.Context, primaryCommitMuta
 		conn, err := grpc.Dial(secondaryChunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure()) // connecting to secondary chunk server
 		defer conn.Close()
 		if err != nil {
-			log.Printf("error occurred when primaryCS dialing to secondaryCS: %s", err)
+			s.pendingTxsLock.Unlock()
 			return &protos.Ack{}, errors.New("error occurred when primaryCS dialing to secondaryCS")
 		}
 
 		secondaryChunkServerClient := protos.NewChunkServerClient(conn)
-		_, err = secondaryChunkServerClient.SecondaryCommitMutate(context.Background(), &protos.SecondaryCommitMutateRequest{Ch: chunkHandle, TransactionId: transactionId})
+		_, err = secondaryChunkServerClient.SecondaryCommitMutate(context.Background(), &protos.SecondaryCommitMutateRequest{Ch: chunkHandle, TxIds: mutations})
 		if err != nil {
-			log.Printf("error occurred on secondaryCommitMutate %s", err)
+			s.pendingTxsLock.Unlock()
 			return &protos.Ack{}, errors.New("error occurred on secondaryCommitMutate")
 		}
 		// TODO: If forwarding fails, keep trying until success or reach some boundary
 	}
-	log.Printf("Primary chunkserver %s successfully committed and forwarded to %s", s.Address, secondaryChunkServerAddresses)
+	s.pendingTxsLock.Unlock()
+
 	return &protos.Ack{Message: "Primary chunkserver " + s.Address + " successfully committed and forwarded"}, nil
 }
 
 func (s *ChunkServer) SecondaryCommitMutate(ctx context.Context, secondaryCommitMutateRequest *protos.SecondaryCommitMutateRequest) (*protos.Ack, error) {
 	chunkHandle := secondaryCommitMutateRequest.Ch
-	transactionId := secondaryCommitMutateRequest.TransactionId
-
-	path := chunkServerTempDirectoryPath + s.Address + "/" + strconv.FormatUint(chunkHandle, 10) + ".txt"
-	data := s.WriteCache[transactionId].Data
-	offset := s.WriteCache[transactionId].Offset
-	status := s.localWriteToFile(transactionId, path, data, offset)
-	if status == -1 {
-		return &protos.Ack{}, errors.New("Error opening file to write in secondaryCS")
+	txOrder := secondaryCommitMutateRequest.TxIds
+	err := s.applyMutations(txOrder, chunkHandle)
+	if err != nil {
+		return &protos.Ack{}, err
 	}
-	log.Printf("Secondary chunkserver %s successfully committed", s.Address)
 	return &protos.Ack{Message: "Secondary chunkserver " + s.Address + " successfully committed"}, nil
 }
 
@@ -136,27 +149,46 @@ func (s *ChunkServer) CreateNewChunk(ctx context.Context, ch *protos.ChunkHandle
 	return &protos.Ack{Message: "successfully replicated chunk on " + s.Address}, nil
 }
 
-func (s *ChunkServer) localWriteToFile(transactionId string, path string, data []byte, offset int64) int {
+func (s *ChunkServer) ReceiveLease(ctx context.Context, l *protos.LeaseBundle) (*protos.Ack, error) {
+	s.leases[l.Ch] = l.TimeEnd
+	return &protos.Ack{Message: fmt.Sprintf("successfully received lease for chunk %d", l.Ch)}, nil
+}
+
+func (s *ChunkServer) applyMutations(mutationOrder []string, chunkHandle uint64) error {
+	path := chunkServerTempDirectoryPath + s.Address + "/" + strconv.FormatUint(chunkHandle, 10) + ".txt"
+	for _, txId := range mutationOrder {
+		bundle, ok := s.WriteCache[txId]
+		// TO:DO Fix this really hacky way to wait for data to be transmitted to secondary.
+		if !ok {
+			time.Sleep(time.Second * 5)
+			bundle, _ = s.WriteCache[txId]
+		}
+		data := bundle.Data
+		offset := bundle.Offset
+		err := s.localWriteToFile(txId, path, data, offset)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *ChunkServer) localWriteToFile(transactionId string, path string, data []byte, offset int64) error {
 	file, err := os.OpenFile(path, os.O_WRONLY, 0644)
 	if err != nil {
-		return -1
+		return err
 	}
 
-	nBytesWritten, err := file.WriteAt(data, offset)
+	_, err = file.WriteAt(data, offset)
 	if err != nil {
-		return -1
+		return err
 	}
 
 	delete(s.WriteCache, transactionId)
 	err = file.Close()
 	if err != nil {
-		return -1
+		return err
 	}
 
-	return nBytesWritten
-}
-
-func (s *ChunkServer) ReceiveLease(ctx context.Context, l *protos.LeaseBundle) (*protos.Ack, error) {
-	s.leases[l.Ch] = l.TimeEnd
-	return &protos.Ack{Message: fmt.Sprintf("successfully received lease for chunk %d", l.Ch)}, nil
+	return nil
 }
