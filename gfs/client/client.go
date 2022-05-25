@@ -2,20 +2,32 @@ package client
 
 import (
 	"context"
+	"encoding/csv"
+	"fmt"
 	cs "gfs/chunkserver/protos"
 	"gfs/master/protos" // alias this import to 'm' to match 'cs'
 	"log"
 	"math/rand"
+	"os"
 	"time"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 )
 
+var BENCHMARKING = true
+var BENCHMARKING_DIR = "../benchmarking/"
+
 type Client struct {
-	MasterConn   *grpc.ClientConn     // used to later close connection
-	MasterClient *protos.MasterClient // used to invoke RPCs
-	ChunkSize    uint64               // The chunksize of the filesystem.
+	MasterConn      *grpc.ClientConn     // used to later close connection
+	MasterClient    *protos.MasterClient // used to invoke RPCs
+	ChunkSize       uint64               // The chunksize of the filesystem.
+	BenchmarkConfig BenchmarkConfig
+}
+
+type BenchmarkConfig struct {
+	OutputDir    string
+	Architecture string // ASYNC OR SEQ
 }
 
 // Initializes a new Client. Pass in master's identifier to link Client to master
@@ -42,7 +54,19 @@ func NewClient(mAddr string) (*Client, error) {
 	return client, nil
 }
 
+func NewBenchmarkingClient(mAddr string, config BenchmarkConfig) (*Client, error) {
+	client, err := NewClient(mAddr)
+	if err != nil {
+		log.Printf("error when creating a benchmarking client: %s", err)
+	}
+	client.BenchmarkConfig = config
+
+	return client, err
+}
+
 func (client *Client) Create(path string) int {
+
+	startTime := time.Now().UnixMicro()
 	masterClient := *(client.MasterClient)
 	_, err := masterClient.CreateFile(context.Background(), &protos.FileCreateRequest{Path: path, RepFactor: 1})
 	if err != nil {
@@ -50,10 +74,16 @@ func (client *Client) Create(path string) int {
 		return -1
 	}
 	log.Printf("Successfully created file: %s", path)
+	endTime := time.Now().UnixMicro()
+	if BENCHMARKING {
+		latency := endTime - startTime
+		client.recordPerformance("CREATE", latency, 0)
+	}
 	return 0
 }
 
 func (client *Client) Remove(path string) int {
+	startTime := time.Now().UnixMicro()
 	masterClient := *(client.MasterClient)
 	_, err := masterClient.RemoveFile(context.Background(), &protos.FileRemoveRequest{Path: path})
 	if err != nil {
@@ -61,10 +91,16 @@ func (client *Client) Remove(path string) int {
 		return -1
 	}
 	log.Printf("Successfully removed file: %s", path)
+	endTime := time.Now().UnixMicro()
+	if BENCHMARKING {
+		latency := endTime - startTime
+		client.recordPerformance("REMOVE", latency, 0)
+	}
 	return 0
 }
 
 func (client *Client) Read(path string, offset uint64, data []byte) int {
+	startTime := time.Now().UnixMicro()
 	masterClient := *(client.MasterClient)
 	chunkSize := client.ChunkSize
 	totalBytesRead := uint64(0)
@@ -104,10 +140,17 @@ func (client *Client) Read(path string, offset uint64, data []byte) int {
 		remainingBytesToRead -= nBytesToRead
 		totalBytesRead += nBytesToRead
 	}
+	endTime := time.Now().UnixMicro()
+	if BENCHMARKING {
+		latency := endTime - startTime
+		client.recordPerformance("READ", latency, totalBytesRead)
+	}
 	return int(totalBytesRead)
 }
 
 func (client *Client) Write(path string, offset uint64, data []byte) int {
+	startTime := time.Now().UnixMicro()
+
 	masterClient := *(client.MasterClient)
 	chunkSize := client.ChunkSize
 	totalBytesWritten := uint64(0)
@@ -174,5 +217,53 @@ func (client *Client) Write(path string, offset uint64, data []byte) int {
 		remainingBytesToWrite -= nBytesToWrite
 		totalBytesWritten += nBytesToWrite
 	}
+
+	endTime := time.Now().UnixMicro()
+	if BENCHMARKING {
+		latency := endTime - startTime
+		client.recordPerformance("WRITE", latency, totalBytesWritten)
+	}
 	return int(totalBytesWritten)
+}
+
+type record struct {
+	operationName string // WRITE, READ, CREATE, REMOTE
+	latency       int64  // latency
+	load          uint64 // number of bytes worked on
+}
+
+func (client *Client) recordPerformance(operationName string, latency int64, load uint64) {
+	// pipe to files
+	fmt.Println("Getting cwd")
+
+	path, err := os.Getwd()
+	if err != nil {
+		log.Println(err)
+	}
+	fmt.Println(path)
+	fmt.Println("----\n")
+	fname := client.BenchmarkConfig.OutputDir + operationName + ".csv"
+	fmt.Printf("filename: %s\n", fname)
+
+	csvFile, err := os.OpenFile(fname, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	defer csvFile.Close()
+	if err != nil {
+		log.Printf("error opening benchmark file for %s", operationName)
+		return
+	}
+	writer := csv.NewWriter(csvFile)
+
+	// data := record{operationName: operationName, latency: latency, load: load}
+	data := [][]string{
+		{fmt.Sprint(latency), fmt.Sprint(load)},
+	}
+
+	err = writer.WriteAll(data)
+	if err != nil {
+		log.Printf("error writing to benchmark file for %s: %s", operationName, err)
+		return
+	}
+
+	log.Printf("%s latency: %d", operationName, latency)
+
 }
