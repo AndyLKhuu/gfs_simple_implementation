@@ -77,7 +77,7 @@ func (s *MasterServer) GetChunkLocation(ctx context.Context, chunkLocReq *protos
 	chunkIdx := chunkLocReq.ChunkIdx
 
 	// Generate new chunks up to the chunkIdx we want. Question: do we want our FS to support files with gaps?
-	for int32(len(s.Files[path])) < chunkIdx+1 {
+	for uint32(len(s.Files[path])) < chunkIdx+1 {
 		s.createNewChunk(path)
 	}
 	chunkHandle := s.Files[path][chunkIdx]

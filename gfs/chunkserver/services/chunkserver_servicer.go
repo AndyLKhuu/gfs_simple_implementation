@@ -70,7 +70,7 @@ func (s *ChunkServer) Read(ctx context.Context, readReq *protos.ReadRequest) (*p
 }
 
 func (s *ChunkServer) ReceiveWriteData(ctx context.Context, writeBundle *protos.WriteDataBundle) (*protos.Ack, error) {
-	transactionId := writeBundle.TransactionId
+	transactionId := writeBundle.TxId
 	ch := writeBundle.Ch
 	s.WriteCache[transactionId] = writeBundle
 	s.pendingTxsLock.Lock()
@@ -81,7 +81,7 @@ func (s *ChunkServer) ReceiveWriteData(ctx context.Context, writeBundle *protos.
 
 func (s *ChunkServer) PrimaryCommitMutate(ctx context.Context, primaryCommitMutateRequest *protos.PrimaryCommitMutateRequest) (*protos.Ack, error) {
 	chunkHandle := primaryCommitMutateRequest.Ch
-	transactionId := primaryCommitMutateRequest.TransactionId
+	transactionId := primaryCommitMutateRequest.TxId
 
 	// TO:DO Fix coarse locking.
 	s.pendingTxsLock.Lock()
@@ -173,13 +173,13 @@ func (s *ChunkServer) applyMutations(mutationOrder []string, chunkHandle uint64)
 	return nil
 }
 
-func (s *ChunkServer) localWriteToFile(transactionId string, path string, data []byte, offset int64) error {
+func (s *ChunkServer) localWriteToFile(transactionId string, path string, data []byte, offset uint64) error {
 	file, err := os.OpenFile(path, os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
 
-	_, err = file.WriteAt(data, offset)
+	_, err = file.WriteAt(data, int64(offset))
 	if err != nil {
 		return err
 	}
