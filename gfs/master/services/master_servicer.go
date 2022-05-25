@@ -20,10 +20,10 @@ type leaseInfo struct {
 type MasterServer struct {
 	protos.UnimplementedMasterServer
 	ChunkServerClients map[string]cs.ChunkServerClient
-	Files              map[string][]uint64 // Files to ChunkHandles
-	Chunks             map[uint64][]string // ChunkHandles to Replica Locations
-	leases             map[uint64]leaseInfo
-	chunkHandleSet     map[uint64]bool // Set of used chunkhandles
+	Files              map[string][]uint64  // Files to ChunkHandles
+	Chunks             map[uint64][]string  // ChunkHandles to Replica Locations
+	leases             map[uint64]leaseInfo // ChunkHandles to leaseInfo
+	chunkHandleSet     map[uint64]bool      // Set of used chunkhandles
 }
 
 func NewMasterServer() *MasterServer {
@@ -123,24 +123,19 @@ func (s *MasterServer) CreateFile(ctx context.Context, createReq *protos.FileCre
 	}
 
 	createNewChunkStatus := s.createNewChunk(path)
-	if createNewChunkStatus == -1 {
+	if createNewChunkStatus != nil {
 		return &protos.Ack{Message: "Error creating new chunk"}, errors.New("Error creating new chunk")
 	}
 	return &protos.Ack{Message: fmt.Sprintf("successfuly created file at path %s", path)}, nil
 }
 
-// WIP
 func (s *MasterServer) RemoveFile(ctx context.Context, removeReq *protos.FileRemoveRequest) (*protos.Ack, error) {
 	path := removeReq.Path
 	e := os.Remove(path)
 	if e != nil {
-		log.Fatal("couldn't Delete File \n")
+		return &protos.Ack{Message: fmt.Sprintf("failed to delete file at path %s", path)}, e
 	}
-	log.Println("TODO: Implement deleting file across chunk servers.")
-
-	s.removeChunks(path)
-	//TO:DO We also have to remove the file meta data from the in-memory structures on the master
-	delete(s.Files, path)
+	s.removeFileChunks(path)
 	return &protos.Ack{Message: fmt.Sprintf("successfuly deleted file at path %s", path)}, nil
 }
 
@@ -162,7 +157,7 @@ func (s *MasterServer) generateChunkHandle() uint64 {
 	return ch
 }
 
-func (s *MasterServer) createNewChunk(path string) int {
+func (s *MasterServer) createNewChunk(path string) error {
 	ch := s.generateChunkHandle()
 	chunks := append(s.Files[path], ch)
 	// Choose REPFACTOR servers
@@ -171,17 +166,17 @@ func (s *MasterServer) createNewChunk(path string) int {
 		res, err := v.CreateNewChunk(context.Background(), &cs.ChunkHandle{Ch: ch})
 		if err != nil {
 			s.Chunks[ch] = []string{}
-			return -1
+			return err
 		}
 		log.Printf(res.Message)
 
 		s.Chunks[ch] = append(s.Chunks[ch], k)
 	}
 	s.Files[path] = chunks
-	return 0
+	return nil
 }
 
-func (s *MasterServer) removeChunks(path string) int {
+func (s *MasterServer) removeFileChunks(path string) error {
 	chunkHandles := s.Files[path]
 	log.Printf("handles to delete: %d", chunkHandles)
 	for i := 0; i < len(chunkHandles); i++ {
@@ -193,14 +188,14 @@ func (s *MasterServer) removeChunks(path string) int {
 			chunkServerClient := s.ChunkServerClients[chunkServerAddr]
 			res, err := chunkServerClient.RemoveChunk(context.Background(), &cs.ChunkHandle{Ch: chunkHandle})
 			if err != nil {
-				continue // Hmm... what will this error mean? We still want to continue removing chunks from other chunk servers
+				continue // TODO: If this fail, chunk server may be offline/dead. Implement heart beats
 			}
 			log.Printf(res.Message)
 		}
 		delete(s.Chunks, chunkHandle)
 		delete(s.chunkHandleSet, chunkHandle)
 		delete(s.leases, chunkHandle)
-
+		delete(s.Files, path)
 	}
-	return -1
+	return nil
 }
