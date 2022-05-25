@@ -26,9 +26,9 @@ message ReadReply {
 
 // The request message containing the arguments to a read request.
 message ReadRequest {
-  uint64 ch = 1;
-  int32 l = 2;
-  int32 r = 3;
+  int32 l = 1;
+  int32 r = 2;
+  uint64 ch = 3;
 }
 
 // A message containing a chunk handle
@@ -37,14 +37,14 @@ message ChunkHandle {
 }
 
 message PrimaryCommitMutateRequest {
-  uint64 ch = 1;
-  repeated string secondaryChunkServerAddresses = 2;
-  string transactionId = 3;
+  repeated string secondaryChunkServerAddresses = 1;
+  string txId = 2;
+  uint64 ch = 3;
 }
 
 message SecondaryCommitMutateRequest {
-  uint64 ch = 1;
-  string transactionId = 2;
+  repeated string txIds = 1;
+  uint64 ch = 2;
 }
 
 // A reply message containing an acknowledgement
@@ -55,15 +55,15 @@ message Ack {
 // A request message containing potential mutation data from clients.
 message WriteDataBundle {
   bytes data = 1;
-  int64 size = 2;
-  uint64 ch = 3;
-  int64 offset = 4;
-  string transactionId = 5;
+  string txId = 2;
+  uint64 size = 3;
+  uint64 offset = 4;
+  uint64 ch = 5;
 }
 
 // A request message containing a lease for a chunk
 message LeaseBundle {
-  uint64 ch = 1;
-  int64 timeEnd = 2;
+  int64 timeEnd = 1;
+  uint64 ch = 2;
 }
 

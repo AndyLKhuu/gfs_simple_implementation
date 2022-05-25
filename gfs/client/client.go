@@ -15,10 +15,11 @@ import (
 type Client struct {
 	MasterConn   *grpc.ClientConn     // used to later close connection
 	MasterClient *protos.MasterClient // used to invoke RPCs
+	ChunkSize    uint64               // The chunksize of the filesystem.
 }
 
 // Initializes a new Client. Pass in master's identifier to link Client to master
-func InitClient(mAddr string) *Client {
+func NewClient(mAddr string) (*Client, error) {
 	var conn *grpc.ClientConn
 	conn, err := grpc.Dial(mAddr, grpc.WithInsecure())
 	if err != nil {
@@ -27,11 +28,18 @@ func InitClient(mAddr string) *Client {
 
 	c := protos.NewMasterClient(conn)
 
+	getSystemChunkSizeReply, err := c.GetSystemChunkSize(context.Background(), &protos.SystemChunkSizeRequest{})
+	if err != nil {
+		log.Printf("error when calling GetSystemChunkSize: %s", err)
+		return &Client{}, err
+	}
+
 	client := new(Client)
 	client.MasterConn = conn
 	client.MasterClient = &c
+	client.ChunkSize = getSystemChunkSizeReply.Size
 
-	return client
+	return client, nil
 }
 
 func (client *Client) Create(path string) int {
@@ -56,24 +64,14 @@ func (client *Client) Remove(path string) int {
 	return 0
 }
 
-func (client *Client) Read(path string, offset int64, data []byte) int {
+func (client *Client) Read(path string, offset uint64, data []byte) int {
 	masterClient := *(client.MasterClient)
-	getSystemChunkSizeReply, err := masterClient.GetSystemChunkSize(context.Background(), &protos.SystemChunkSizeRequest{})
-	if err != nil {
-		log.Printf("error when calling GetSystemChunkSize: %s", err)
-		return -1
-	}
-
-	chunkSize := getSystemChunkSizeReply.Size
-
-	totalBytesToRead := len(data)
-	log.Printf("Total bytes to read: %d", totalBytesToRead)
-
-	totalBytesRead := int64(0)
-	remainingBytesToRead := int64(len(data))
-	for dataOffset := offset; dataOffset < offset+int64(len(data)); {
-		chunkIdx := int32(dataOffset / chunkSize) // check this
-		chunkOffset := int64(dataOffset) % chunkSize
+	chunkSize := client.ChunkSize
+	totalBytesRead := uint64(0)
+	remainingBytesToRead := uint64(len(data))
+	for dataOffset := offset; dataOffset < offset+uint64(len(data)); {
+		chunkIdx := uint32(dataOffset / chunkSize) // check this
+		chunkOffset := uint64(dataOffset) % chunkSize
 		remainingChunkSpace := chunkSize - chunkOffset
 
 		// Calculate max number of bytes to read
@@ -109,24 +107,14 @@ func (client *Client) Read(path string, offset int64, data []byte) int {
 	return int(totalBytesRead)
 }
 
-func (client *Client) Write(path string, offset int64, data []byte) int {
+func (client *Client) Write(path string, offset uint64, data []byte) int {
 	masterClient := *(client.MasterClient)
-	getSystemChunkSizeReply, err := masterClient.GetSystemChunkSize(context.Background(), &protos.SystemChunkSizeRequest{})
-	if err != nil {
-		log.Printf("error when calling GetSystemChunkSize: %s", err)
-		return -1
-	}
-
-	chunkSize := getSystemChunkSizeReply.Size // For testing, we are curently treating SIZE as number of bytes
-
-	totalBytesToWrite := len(data)
-	log.Printf("Total bytes to write: %d", totalBytesToWrite)
-
-	totalBytesWritten := int64(0)
-	remainingBytesToWrite := int64(len(data))
-	for dataOffset := offset; dataOffset < offset+int64(len(data)); {
-		chunkIdx := int32(dataOffset / chunkSize)
-		chunkOffset := int64(dataOffset) % chunkSize
+	chunkSize := client.ChunkSize
+	totalBytesWritten := uint64(0)
+	remainingBytesToWrite := uint64(len(data))
+	for dataOffset := offset; dataOffset < offset+uint64(len(data)); {
+		chunkIdx := uint32(dataOffset / chunkSize)
+		chunkOffset := uint64(dataOffset) % chunkSize
 		remainingChunkSpace := chunkSize - chunkOffset
 
 		// Calculate max number of bytes to write
@@ -157,8 +145,9 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 			}
 			chunkServerClient := cs.NewChunkServerClient(conn)
 
+			// TO:DO Repush data on failure
 			_, err = chunkServerClient.ReceiveWriteData(context.Background(),
-				&cs.WriteDataBundle{TransactionId: transactionId, Data: data[totalBytesWritten : totalBytesWritten+nBytesToWrite], Size: nBytesToWrite, Ch: chunkHandle, Offset: chunkOffset})
+				&cs.WriteDataBundle{TxId: transactionId, Data: data[totalBytesWritten : totalBytesWritten+nBytesToWrite], Size: nBytesToWrite, Ch: chunkHandle, Offset: chunkOffset})
 			if err != nil {
 				log.Printf("error when calling ReceiveWriteData: %s", err)
 				replicaReceiveStatus[i] = false
@@ -167,10 +156,9 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 			replicaReceiveStatus[i] = true
 			conn.Close()
 		}
-		// Do we need to resend writeData to failed nodes?
 
 		// Client tells primary to commit
-		primaryChunkServerAddr := chunkLocations[0]
+		primaryChunkServerAddr := getChunkLocationReply.Primary
 		conn, err := grpc.Dial(primaryChunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure())
 		if err != nil {
 			log.Printf("error when client connecting to primary chunk server: %s", err)
@@ -178,7 +166,7 @@ func (client *Client) Write(path string, offset int64, data []byte) int {
 		}
 		primaryChunkServerClient := cs.NewChunkServerClient(conn)
 		_, err = primaryChunkServerClient.PrimaryCommitMutate(context.Background(),
-			&cs.PrimaryCommitMutateRequest{Ch: chunkHandle, SecondaryChunkServerAddresses: chunkLocations[1:], TransactionId: transactionId})
+			&cs.PrimaryCommitMutateRequest{Ch: chunkHandle, SecondaryChunkServerAddresses: chunkLocations[1:], TxId: transactionId})
 
 		conn.Close()
 

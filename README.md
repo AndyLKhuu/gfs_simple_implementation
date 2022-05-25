@@ -1,29 +1,31 @@
-# gfs_simple_implementation
+# Simple Implementation of Google File System
 
-# TO:DO 
+Simple Implementation of Google File System is a simplified version of GFS written in Golang. Our implementation emulates the normal operations of the GFS system with the assumption that nodes would communicate over gRpc. 
 
-Andy: 
-- Explore using Bazel
-- Add more complex synchronization mechanism to check for completion of Master/Chunkserver Initialization
-- Security
-- Better variable/function naming
-- Add timing mechanisms
-- How to properly close client connections? We should keep track of them so that proper garbage collection should happen
-- Find some type of library to more efficiently process, read, and aggregate logs
-- Figure out how many chunkservers we want to spin up and the timeouts we need to do so.
-- Clean up communication set up calls, maybe it's too many nested goroutines
-- Add a flag which supresses log calls (different levels of logs perhaps?)
-- Fix Subtle Bug where if the number of successful Chunkservers is < NUMCHUNKSERVERS, then the error is properly handled
-- Optimize generateChunkHandle() such that it is resilience and deterministic under heavy load.
-- Add function to cleanly and safely destruct everything. (memory, files, etc)
-- Upgrade Lock Manager to support directories
 
-Vincent:
-- Optimization: async forwarding of commitReq from primaryCS to secondaryCS
-- Optimization: async sending writeData from client to all replicas
-- Observational/tedious: Not sure if our data types are sloppy but there seems to be a lot of type-casting between int, int32, uint64, and int64. Fixable?
-- Benchmarking
-- More consistent/systematic logging -> consider how logging IO affect benchmarking data when longers program paths have more logs (can we turn off with a flag?) [Mentioned by Andy] 
-- Look into more sysematic workload/test generation in test.go
-- Use dedicated testing package in stead of running in main
-- Heartbeat
+For a more indepth description of our implementation and its performance, refer to
+
+
+[Insert link to our paper]
+
+# Architecture
+
+Our implementation of GFS consists of a Master Server, a configurable number of Chunkservers, as well as varying numbers of clients. Each of these components communicate with each other through gRpc. In our implementation, we provide an client interface which supports connecting to GFS as well as basic interactions with the filesystem 
+
+Main Features
+- Support for Create()/Read()/Write()/Remove() of plaintext files
+- Support for Concurrent Mutations
+
+
+# Testing
+For those interested in running our system and seeing text files actually being managed and created, please feel free to fork our repo and test it by running the following command from the gfs directory.
+
+<code> go run main.go </code>
+
+We also welcome you to look through our client interface and try to stress test our system.
+
+# Authors
+
+Andy Khuu (andykhuu@stanford.edu) 
+
+Vincent Heng (vheng@stanford.edu)

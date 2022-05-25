@@ -3,9 +3,7 @@ package main
 import (
 	"fmt"
 	"gfs/chunkserver"
-	"gfs/client"
 	"gfs/master"
-	"gfs/test"
 	"log"
 	"os"
 	"time"
@@ -34,18 +32,23 @@ func main() {
 
 	fmt.Println("-------")
 
-	// Start up Clients
-	for i := 0; i < NUM_CLIENTS; i++ {
-		go func() {
-			c := client.InitClient(masterServerPort)
-			defer c.MasterConn.Close()
-			log.Println("Initialized a client")
+	// We are purposely leaving this uncommented code in for now as we transition to a more defined testing suite.
+	// // Start up Clients
+	// for i := 0; i < NUM_CLIENTS; i++ {
+	// 	go func() {
+	// 		c, err := client.NewClient(masterServerPort)
+	// 		if err != nil {
+	// 			log.Printf("failed to initialize client %s", err)
+	// 		}
+	// 		defer c.MasterConn.Close()
+	// 		log.Println("Initialized a client")
 
-			test.Run(test.WriteRemoveSmallFileTest, c)
-			test.Run(test.WriteRemoveLargeFileTest, c)
-
-		}()
-	}
+	// 		test.Run(test.WriteReadSmallFileTest, c)
+	// 		test.Run(test.WriteReadMediumFileTest, c)
+	// 		test.Run(test.WriteReadLargeFileTest, c)
+	// 		test.Run(test.WriteReadLargeFileOffsettedTest, c)
+	// 	}()
+	// }
 
 	log.Println("Done.")
 	select {}

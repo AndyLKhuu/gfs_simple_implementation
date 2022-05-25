@@ -77,7 +77,7 @@ func (s *MasterServer) GetChunkLocation(ctx context.Context, chunkLocReq *protos
 	chunkIdx := chunkLocReq.ChunkIdx
 
 	// Generate new chunks up to the chunkIdx we want. Question: do we want our FS to support files with gaps?
-	for int32(len(s.Files[path])) < chunkIdx+1 {
+	for uint32(len(s.Files[path])) < chunkIdx+1 {
 		s.createNewChunk(path)
 	}
 	chunkHandle := s.Files[path][chunkIdx]
@@ -109,15 +109,13 @@ func (s *MasterServer) ReceiveClientWriteRequest(ctx context.Context, clientWrit
 func (s *MasterServer) CreateFile(ctx context.Context, createReq *protos.FileCreateRequest) (*protos.Ack, error) {
 	path := createReq.Path
 	repFactor := createReq.RepFactor
-
-	// Create File
 	_, e := os.Create(path)
 	if e != nil {
 		return &protos.Ack{Message: fmt.Sprintf("failed to create file at path %s", path)}, e
 	}
 
-	numChunkServers := len(s.ChunkServerClients)
 	// TO:DO Have better replication factor check (> n/2?)
+	numChunkServers := len(s.ChunkServerClients)
 	if int(repFactor) > numChunkServers || repFactor < 1 {
 		return &protos.Ack{Message: "Replication Factor is Invalid"}, errors.New("Invalid Replication Factor Value")
 	}
@@ -126,6 +124,7 @@ func (s *MasterServer) CreateFile(ctx context.Context, createReq *protos.FileCre
 	if createNewChunkStatus != nil {
 		return &protos.Ack{Message: "Error creating new chunk"}, errors.New("Error creating new chunk")
 	}
+
 	return &protos.Ack{Message: fmt.Sprintf("successfuly created file at path %s", path)}, nil
 }
 
@@ -160,7 +159,6 @@ func (s *MasterServer) generateChunkHandle() uint64 {
 func (s *MasterServer) createNewChunk(path string) error {
 	ch := s.generateChunkHandle()
 	chunks := append(s.Files[path], ch)
-	// Choose REPFACTOR servers
 	// TO:DO Choose replication servers to maximize throughoupt and ensure load balancing
 	for k, v := range s.ChunkServerClients {
 		res, err := v.CreateNewChunk(context.Background(), &cs.ChunkHandle{Ch: ch})
