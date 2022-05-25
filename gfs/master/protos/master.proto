@@ -33,8 +33,8 @@ message ChunkHandle {
 }
 
 message RenewChunkLeaseRequest {
-  uint64 ch = 1;
-  string addr = 2;
+  string addr = 1;
+  uint64 ch = 2;
 }
 
 // The request message containing the user's name.
@@ -44,7 +44,7 @@ message ChunkServerID {
 
 // The reply message containing the system's fixed chunk size.
 message ChunkSize {
-  int64 size = 1;
+  uint64 size = 1;
 }
 
 // The place holder message for a client write request.
@@ -56,14 +56,14 @@ message SystemChunkSizeRequest {}
 // The request message for a file's chunk size
 message ChunkLocationRequest {
   string path = 1;
-  int32 chunkIdx = 2;
+  uint32 chunkIdx = 2;
 }
 
 // The reply message for a file's chunk handler and its replica locations.
 message ChunkLocationReply {
-  uint64 chunkHandle = 1;
+  repeated string chunkServerIds = 1;
   string primary = 2;
-  repeated string chunkServerIds = 3;
+  uint64 chunkHandle = 3;
 }
   
 // The response message acknowledging a transaction.

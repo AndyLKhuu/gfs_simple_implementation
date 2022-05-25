@@ -90,7 +90,7 @@ func Test_MultipleClientsOverlappingWrites(t *testing.T) {
 	}()
 
 	go func() {
-		actualBytesWritten := c2.Write(smallFileName, int64(len(str1)), []byte(str2))
+		actualBytesWritten := c2.Write(smallFileName, uint64(len(str1)), []byte(str2))
 		assert.Equal(t, len(str2), actualBytesWritten)
 		done <- true
 	}()
