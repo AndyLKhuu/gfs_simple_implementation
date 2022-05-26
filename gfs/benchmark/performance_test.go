@@ -1,9 +1,11 @@
 package benchmark
 
 import (
+	"bytes"
 	"gfs/chunkserver"
 	"gfs/client"
 	"gfs/master"
+	"io/ioutil"
 	"log"
 	"os"
 	"testing"
@@ -52,7 +54,7 @@ func TestMain(m *testing.M) {
 
 	exitVal := m.Run()
 
-	_ = os.RemoveAll("../temp_dfs_storage")
+	// _ = os.RemoveAll("../temp_dfs_storage")
 
 	os.Exit(exitVal)
 }
@@ -80,4 +82,34 @@ func Test_MultipleClientsSimpleCreateWriteAndRead(t *testing.T) {
 	// This is a purposely redundant test to ensure correctness.
 	assert.Equal(t, len(readBuf), actualBytesRead)
 	assert.Equal(t, string(readBuf), str)
+}
+
+func Test_Single3000ByteCreateWriteReadRemove(t *testing.T) {
+	for i := 0; i < 10; i++ {
+
+		c1, err := client.NewBenchmarkingClient(masterServerPort, BENCHMARK_CONFIG)
+		defer c1.MasterConn.Close()
+		assert.NoError(t, err)
+
+		targetFileName := "files/textfile_1000b.txt"
+
+		data, err := ioutil.ReadFile(targetFileName)
+		if err != nil {
+			log.Printf("error reading file %s: %s", targetFileName, err)
+		}
+
+		filename := "textfile_1000b.txt"
+		c1.Create(filename)
+		c1.Write(filename, 0, data)
+
+		readBuffer := make([]byte, len(data))
+
+		c1.Read(filename, 0, readBuffer)
+
+		c1.Remove(filename)
+
+		match := bytes.Compare(data, readBuffer)
+		assert.True(t, match == 0, "ERROR: input and outputs do not match. Invalidate benchmark results.")
+	}
+
 }

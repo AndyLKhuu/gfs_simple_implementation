@@ -108,7 +108,7 @@ func Test_MultipleClientsOverlappingWrites(t *testing.T) {
 	assert.Equal(t, expectedStr, string(readBuf))
 }
 
-func Test_ClientWriteRemove(t *testing.T) {
+func Test_MultipleClientsWriteRemove(t *testing.T) {
 	c1, err := client.NewClient(masterServerPort)
 	assert.NoError(t, err)
 	defer c1.MasterConn.Close()
