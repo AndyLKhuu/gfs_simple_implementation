@@ -16,6 +16,8 @@ import (
 
 var chunkServerTempDirectoryPath = "../temp_dfs_storage/"
 
+var ASYNC = true
+
 type ChunkServer struct {
 	protos.UnimplementedChunkServerServer
 	ChunkHandleToFile map[uint64]string                  // Chunkhandle to filepath of chunk
@@ -104,23 +106,70 @@ func (s *ChunkServer) PrimaryCommitMutate(ctx context.Context, primaryCommitMuta
 
 	// Forward request to secondaries
 	secondaryChunkServerAddresses := primaryCommitMutateRequest.SecondaryChunkServerAddresses
-	for i := 0; i < len(secondaryChunkServerAddresses); i++ { // TODO: optimize to async
-		secondaryChunkServerAddr := secondaryChunkServerAddresses[i]
-		conn, err := grpc.Dial(secondaryChunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure()) // connecting to secondary chunk server
-		defer conn.Close()
-		if err != nil {
-			s.pendingTxsLock.Unlock()
-			return &protos.Ack{}, errors.New("error occurred when primaryCS dialing to secondaryCS")
+
+	if !ASYNC {
+		for i := 0; i < len(secondaryChunkServerAddresses); i++ {
+			secondaryChunkServerAddr := secondaryChunkServerAddresses[i]
+			conn, err := grpc.Dial(secondaryChunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure()) // connecting to secondary chunk server
+			defer conn.Close()
+			if err != nil {
+				s.pendingTxsLock.Unlock()
+				return &protos.Ack{}, errors.New("error occurred when primaryCS dialing to secondaryCS")
+			}
+
+			secondaryChunkServerClient := protos.NewChunkServerClient(conn)
+			_, err = secondaryChunkServerClient.SecondaryCommitMutate(context.Background(), &protos.SecondaryCommitMutateRequest{Ch: chunkHandle, TxIds: mutations})
+			if err != nil {
+				s.pendingTxsLock.Unlock()
+				return &protos.Ack{}, errors.New("error occurred on secondaryCommitMutate")
+			}
+			// TODO: If forwarding fails, keep trying until success or reach some boundary
+		}
+	} else {
+
+		type response struct {
+			Ack *protos.Ack
+			err error
 		}
 
-		secondaryChunkServerClient := protos.NewChunkServerClient(conn)
-		_, err = secondaryChunkServerClient.SecondaryCommitMutate(context.Background(), &protos.SecondaryCommitMutateRequest{Ch: chunkHandle, TxIds: mutations})
-		if err != nil {
-			s.pendingTxsLock.Unlock()
-			return &protos.Ack{}, errors.New("error occurred on secondaryCommitMutate")
+		done := make(chan response, len(secondaryChunkServerAddresses))
+
+		var client_wg sync.WaitGroup
+		for i := 0; i < len(secondaryChunkServerAddresses); i++ {
+			client_wg.Add(1)
+			go func(i int) {
+				defer client_wg.Done()
+				secondaryChunkServerAddr := secondaryChunkServerAddresses[i]
+				conn, err := grpc.Dial(secondaryChunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure()) // connecting to secondary chunk server
+				defer conn.Close()
+				if err != nil {
+					s.pendingTxsLock.Unlock()
+					done <- response{&protos.Ack{}, errors.New("error occurred on secondaryCommitMutate")}
+					return
+				}
+
+				secondaryChunkServerClient := protos.NewChunkServerClient(conn)
+				_, err = secondaryChunkServerClient.SecondaryCommitMutate(context.Background(), &protos.SecondaryCommitMutateRequest{Ch: chunkHandle, TxIds: mutations})
+				if err != nil {
+					s.pendingTxsLock.Unlock()
+					done <- response{&protos.Ack{}, errors.New("error occurred on secondaryCommitMutate")}
+					return
+				}
+
+			}(i)
 		}
-		// TODO: If forwarding fails, keep trying until success or reach some boundary
+		client_wg.Wait()
+		close(done)
+
+		// Check that all async processes did their job; clean ack
+		for response := range done {
+			if response.err != nil {
+				return response.Ack, response.err
+			}
+		}
+
 	}
+
 	s.pendingTxsLock.Unlock()
 
 	return &protos.Ack{Message: "Primary chunkserver " + s.Address + " successfully committed and forwarded"}, nil

@@ -33,7 +33,7 @@ func main() {
 	fmt.Println("-------")
 
 	// We are purposely leaving this uncommented code in for now as we transition to a more defined testing suite.
-	// // Start up Clients
+	// Start up Clients
 	// for i := 0; i < NUM_CLIENTS; i++ {
 	// 	go func() {
 	// 		c, err := client.NewClient(masterServerPort)
@@ -41,12 +41,15 @@ func main() {
 	// 			log.Printf("failed to initialize client %s", err)
 	// 		}
 	// 		defer c.MasterConn.Close()
-	// 		log.Println("Initialized a client")
 
 	// 		test.Run(test.WriteReadSmallFileTest, c)
+
 	// 		test.Run(test.WriteReadMediumFileTest, c)
+
 	// 		test.Run(test.WriteReadLargeFileTest, c)
+
 	// 		test.Run(test.WriteReadLargeFileOffsettedTest, c)
+
 	// 	}()
 	// }
 
