@@ -141,8 +141,7 @@ func (client *Client) Write(path string, offset uint64, data []byte) int {
 		replicaReceiveStatus := make([]bool, len(chunkLocations))
 
 		if !ASYNC {
-
-			for i := 0; i < len(chunkLocations); i++ { // TODO: optimize to async
+			for i := 0; i < len(chunkLocations); i++ {
 				chunkServerAddr := chunkLocations[i]
 				conn, err := grpc.Dial(chunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure())
 				if err != nil {
@@ -163,9 +162,7 @@ func (client *Client) Write(path string, offset uint64, data []byte) int {
 				replicaReceiveStatus[i] = true
 				conn.Close()
 			}
-
 		} else {
-
 			done := make(chan bool, len(chunkLocations))
 			var cs_wg sync.WaitGroup
 			for i := 0; i < len(chunkLocations); i++ {

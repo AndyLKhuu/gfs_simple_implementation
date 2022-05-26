@@ -144,7 +144,7 @@ func (s *ChunkServer) PrimaryCommitMutate(ctx context.Context, primaryCommitMuta
 				defer conn.Close()
 				if err != nil {
 					s.pendingTxsLock.Unlock()
-					done <- response{&protos.Ack{}, errors.New("error occurred on secondaryCommitMutate")}
+					done <- response{&protos.Ack{}, err}
 					return
 				}
 
@@ -152,7 +152,7 @@ func (s *ChunkServer) PrimaryCommitMutate(ctx context.Context, primaryCommitMuta
 				_, err = secondaryChunkServerClient.SecondaryCommitMutate(context.Background(), &protos.SecondaryCommitMutateRequest{Ch: chunkHandle, TxIds: mutations})
 				if err != nil {
 					s.pendingTxsLock.Unlock()
-					done <- response{&protos.Ack{}, errors.New("error occurred on secondaryCommitMutate")}
+					done <- response{&protos.Ack{}, err}
 					return
 				}
 
