@@ -6,11 +6,14 @@ import (
 	"gfs/master/protos" // alias this import to 'm' to match 'cs'
 	"log"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 )
+
+var ASYNC = true
 
 type Client struct {
 	MasterConn   *grpc.ClientConn     // used to later close connection
@@ -134,27 +137,65 @@ func (client *Client) Write(path string, offset uint64, data []byte) int {
 
 		// Client pushes data to all replicas
 		transactionId := uuid.New().String()
-		replicaReceiveStatus := make([]bool, len(chunkLocations))
-		for i := 0; i < len(chunkLocations); i++ { // TODO: optimize to async
-			chunkServerAddr := chunkLocations[i]
-			conn, err := grpc.Dial(chunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure())
-			if err != nil {
-				log.Printf("error when client connecting to chunk server %s: %s", chunkServerAddr, err)
-				replicaReceiveStatus[i] = false
-				continue
-			}
-			chunkServerClient := cs.NewChunkServerClient(conn)
 
-			// TO:DO Repush data on failure
-			_, err = chunkServerClient.ReceiveWriteData(context.Background(),
-				&cs.WriteDataBundle{TxId: transactionId, Data: data[totalBytesWritten : totalBytesWritten+nBytesToWrite], Size: nBytesToWrite, Ch: chunkHandle, Offset: chunkOffset})
-			if err != nil {
-				log.Printf("error when calling ReceiveWriteData: %s", err)
-				replicaReceiveStatus[i] = false
-				continue
+		if !ASYNC {
+			for i := 0; i < len(chunkLocations); i++ {
+				chunkServerAddr := chunkLocations[i]
+				conn, err := grpc.Dial(chunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure())
+				if err != nil {
+					log.Printf("error when client connecting to chunk server %s: %s", chunkServerAddr, err)
+					return -1
+				}
+				chunkServerClient := cs.NewChunkServerClient(conn)
+
+				// TO:DO Repush data on failure
+				_, err = chunkServerClient.ReceiveWriteData(context.Background(),
+					&cs.WriteDataBundle{TxId: transactionId, Data: data[totalBytesWritten : totalBytesWritten+nBytesToWrite], Size: nBytesToWrite, Ch: chunkHandle, Offset: chunkOffset})
+				if err != nil {
+					log.Printf("error when calling ReceiveWriteData: %s", err)
+					return -1
+				}
+				conn.Close()
 			}
-			replicaReceiveStatus[i] = true
-			conn.Close()
+		} else {
+			done := make(chan bool, len(chunkLocations))
+			var cs_wg sync.WaitGroup
+			for i := 0; i < len(chunkLocations); i++ {
+				cs_wg.Add(1)
+				go func(i int) {
+					defer cs_wg.Done()
+
+					chunkServerAddr := chunkLocations[i]
+					conn, err := grpc.Dial(chunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure())
+					defer conn.Close()
+
+					if err != nil {
+						log.Printf("error when client connecting to chunk server %s: %s", chunkServerAddr, err)
+						done <- false
+						return
+					}
+					chunkServerClient := cs.NewChunkServerClient(conn)
+					// TO:DO Repush data on failure
+					_, err = chunkServerClient.ReceiveWriteData(context.Background(),
+						&cs.WriteDataBundle{TxId: transactionId, Data: data[totalBytesWritten : totalBytesWritten+nBytesToWrite], Size: nBytesToWrite, Ch: chunkHandle, Offset: chunkOffset})
+					if err != nil {
+						log.Printf("error when calling ReceiveWriteData: %s", err)
+						done <- false
+						return
+					}
+					done <- true
+					return
+				}(i)
+			}
+			cs_wg.Wait()
+			close(done)
+
+			// If any of the replicated writes fail, tell client Write failed.
+			for response := range done {
+				if !response {
+					return -1
+				}
+			}
 		}
 
 		// Client tells primary to commit
