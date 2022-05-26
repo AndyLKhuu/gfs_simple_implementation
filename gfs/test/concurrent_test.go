@@ -18,7 +18,6 @@ var NUM_CHUNK_SERVERS = 3
 var NUM_CLIENTS = 1
 
 func TestMain(m *testing.M) {
-	// TO:DO How to handle errors on the set up
 	if err := os.MkdirAll("../temp_dfs_storage", os.ModePerm); err != nil {
 		log.Fatal(err)
 	}
@@ -34,9 +33,9 @@ func TestMain(m *testing.M) {
 	time.Sleep(2 * time.Second) //Arbitrary Number
 
 	exitVal := m.Run()
-
-	_ = os.RemoveAll("../temp_dfs_storage")
-
+	if err := os.RemoveAll("../temp_dfs_storage"); err != nil {
+		log.Fatal(err)
+	}
 	os.Exit(exitVal)
 }
 

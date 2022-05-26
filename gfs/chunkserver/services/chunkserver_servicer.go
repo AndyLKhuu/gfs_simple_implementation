@@ -14,8 +14,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-var chunkServerTempDirectoryPath = "../temp_dfs_storage/"
-
 type ChunkServer struct {
 	protos.UnimplementedChunkServerServer
 	ChunkHandleToFile map[uint64]string                  // Chunkhandle to filepath of chunk
@@ -29,17 +27,10 @@ type ChunkServer struct {
 	pendingTxsLock    sync.Mutex                         // Lock for pending Txs list
 }
 
-func NewChunkServer(addr string) ChunkServer {
-	fmt.Println("starting up chunkserver " + addr + ".")
-	chunkserverRootDir := chunkServerTempDirectoryPath + addr
-	if err := os.MkdirAll(chunkserverRootDir, os.ModePerm); err != nil {
-		// TO:DO This shouldn't really fatally crash the program, it's just one program
-		log.Fatal(err)
-	}
-
+func NewChunkServer(addr string, path string) ChunkServer {
 	return ChunkServer{
 		ChunkHandleToFile: make(map[uint64]string),
-		Rootpath:          chunkserverRootDir,
+		Rootpath:          path,
 		Address:           addr,
 		WriteCache:        make(map[string]*protos.WriteDataBundle),
 		leases:            make(map[uint64]int64),
@@ -54,7 +45,7 @@ func (s *ChunkServer) Read(ctx context.Context, readReq *protos.ReadRequest) (*p
 	leftBound := readReq.L
 	rightBound := readReq.R
 
-	path := chunkServerTempDirectoryPath + s.Address + "/" + strconv.FormatUint(chunkHandle, 10) + ".txt"
+	path := s.Rootpath + "/" + strconv.FormatUint(chunkHandle, 10) + ".txt"
 	file, err := os.OpenFile(path, os.O_RDONLY, 0644)
 	if err != nil {
 		return &protos.ReadReply{}, err
@@ -155,7 +146,7 @@ func (s *ChunkServer) ReceiveLease(ctx context.Context, l *protos.LeaseBundle) (
 }
 
 func (s *ChunkServer) applyMutations(mutationOrder []string, chunkHandle uint64) error {
-	path := chunkServerTempDirectoryPath + s.Address + "/" + strconv.FormatUint(chunkHandle, 10) + ".txt"
+	path := s.Rootpath + "/" + strconv.FormatUint(chunkHandle, 10) + ".txt"
 	for _, txId := range mutationOrder {
 		bundle, ok := s.WriteCache[txId]
 		// TO:DO Fix this really hacky way to wait for data to be transmitted to secondary.
