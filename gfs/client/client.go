@@ -255,7 +255,7 @@ func (client *Client) recordPerformance(operationName string, latency int64, loa
 
 	// data := record{operationName: operationName, latency: latency, load: load}
 	data := [][]string{
-		{fmt.Sprint(latency), fmt.Sprint(load)},
+		{fmt.Sprint(load), fmt.Sprint(latency)},
 	}
 
 	err = writer.WriteAll(data)
