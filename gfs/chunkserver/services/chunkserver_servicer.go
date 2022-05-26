@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"gfs/chunkserver/protos"
 	"log"
@@ -114,14 +113,14 @@ func (s *ChunkServer) PrimaryCommitMutate(ctx context.Context, primaryCommitMuta
 			defer conn.Close()
 			if err != nil {
 				s.pendingTxsLock.Unlock()
-				return &protos.Ack{}, errors.New("error occurred when primaryCS dialing to secondaryCS")
+				return &protos.Ack{}, err
 			}
 
 			secondaryChunkServerClient := protos.NewChunkServerClient(conn)
 			_, err = secondaryChunkServerClient.SecondaryCommitMutate(context.Background(), &protos.SecondaryCommitMutateRequest{Ch: chunkHandle, TxIds: mutations})
 			if err != nil {
 				s.pendingTxsLock.Unlock()
-				return &protos.Ack{}, errors.New("error occurred on secondaryCommitMutate")
+				return &protos.Ack{}, err
 			}
 			// TODO: If forwarding fails, keep trying until success or reach some boundary
 		}
