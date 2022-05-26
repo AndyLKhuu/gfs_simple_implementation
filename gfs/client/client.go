@@ -49,7 +49,7 @@ func (client *Client) Create(path string) int {
 		log.Printf("error when calling CreateFile %s.", err)
 		return -1
 	}
-	log.Printf("Succesfully created file: %s", path)
+	log.Printf("Successfully created file: %s", path)
 	return 0
 }
 
@@ -60,7 +60,7 @@ func (client *Client) Remove(path string) int {
 		log.Printf("error when calling RemoveFile %s", err)
 		return -1
 	}
-	log.Printf("Succesfully removed file: %s", path)
+	log.Printf("Successfully removed file: %s", path)
 	return 0
 }
 
@@ -104,7 +104,6 @@ func (client *Client) Read(path string, offset uint64, data []byte) int {
 		remainingBytesToRead -= nBytesToRead
 		totalBytesRead += nBytesToRead
 	}
-
 	return int(totalBytesRead)
 }
 
@@ -175,6 +174,5 @@ func (client *Client) Write(path string, offset uint64, data []byte) int {
 		remainingBytesToWrite -= nBytesToWrite
 		totalBytesWritten += nBytesToWrite
 	}
-
 	return int(totalBytesWritten)
 }

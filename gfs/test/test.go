@@ -15,6 +15,11 @@ var testPool = []func(c *client.Client){
 	WriteMediumFileTest,
 	WriteLargeFileTest,
 	WriteReadSmallFileTest,
+	WriteReadMediumFileTest,
+	WriteReadLargeFileTest,
+	WriteReadLargeFileOffsettedTest,
+	WriteRemoveSmallFileTest,
+	WriteRemoveLargeFileTest,
 }
 
 // Run a specified test
@@ -38,7 +43,7 @@ func RunAll(c *client.Client) {
 	}
 }
 
-// Run a random test
+// -------- WRITE TESTS --------
 func WriteSmallFileTest(c *client.Client) {
 	log.Printf("RUNNING TEST: WriteSmallFileTest")
 	var str = "hello"
@@ -70,6 +75,8 @@ func WriteLargeFileTest(c *client.Client) {
 	c.Create(lgFileName)
 	c.Write(lgFileName, 10, []byte(longStr))
 }
+
+// -------- WRITE & READ TESTS --------
 
 func WriteReadSmallFileTest(c *client.Client) {
 	log.Printf("RUNNING TEST: WriteReadSmallFileTest")
@@ -170,3 +177,25 @@ func WriteReadLargeFileOffsettedTest(c *client.Client) {
 		log.Printf("write input and read output do not match!")
 	}
 }
+
+// -------- WRITE & REMOVE TESTS --------
+
+func WriteRemoveSmallFileTest(c *client.Client) {
+	log.Printf("RUNNING TEST: WriteSmallFileTest")
+	var str = "hello"
+	var smallFileName = shared_file_path + "smallFile.txt"
+	c.Create(smallFileName)
+	c.Write(smallFileName, 2, []byte(str))
+	c.Remove(smallFileName)
+}
+
+func WriteRemoveLargeFileTest(c *client.Client) {
+	log.Printf("RUNNING TEST: WriteRemoveLargeFileTest")
+	var longStr = "Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin literature from 45 BC, making it over 2000 years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, looked up one of the more obscure Latin words, consectetur, from a Lorem Ipsum passage, and going through the cites of the word in classical literature, discovered the undoubtable source. Lorem Ipsum comes from sections 1.10.32 and 1.10.33 of 'de Finibus Bonorum et Malorum' (The Extremes of Good and Evil) by Cicero, written in 45 BC. This book is a treatise on the theory of ethics, very popular during the Renaissance. The first line of Lorem Ipsum, 'Lorem ipsum dolor sit amet..', comes from a line in section 1.10.32. The standard chunk of Lorem Ipsum used since the 1500s is reproduced below for those interested. Sections 1.10.32 and 1.10.33 from 'de Finibus Bonorum et Malorum' by Cicero are also reproduced in their exact original form, accompanied by English versions from the 1914 translation by H. Rackham."
+	largeFileName := shared_file_path + "largeFile.txt"
+	c.Create(largeFileName)
+	c.Write(largeFileName, 5, []byte(longStr)) // Write at offset 5
+	c.Remove(largeFileName)
+}
+
+// Other workflows
