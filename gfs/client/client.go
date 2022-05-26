@@ -138,7 +138,6 @@ func (client *Client) Write(path string, offset uint64, data []byte) int {
 
 		// Client pushes data to all replicas
 		transactionId := uuid.New().String()
-		replicaReceiveStatus := make([]bool, len(chunkLocations))
 
 		if !ASYNC {
 			for i := 0; i < len(chunkLocations); i++ {
@@ -146,8 +145,7 @@ func (client *Client) Write(path string, offset uint64, data []byte) int {
 				conn, err := grpc.Dial(chunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure())
 				if err != nil {
 					log.Printf("error when client connecting to chunk server %s: %s", chunkServerAddr, err)
-					replicaReceiveStatus[i] = false
-					continue
+					return -1
 				}
 				chunkServerClient := cs.NewChunkServerClient(conn)
 
@@ -156,10 +154,8 @@ func (client *Client) Write(path string, offset uint64, data []byte) int {
 					&cs.WriteDataBundle{TxId: transactionId, Data: data[totalBytesWritten : totalBytesWritten+nBytesToWrite], Size: nBytesToWrite, Ch: chunkHandle, Offset: chunkOffset})
 				if err != nil {
 					log.Printf("error when calling ReceiveWriteData: %s", err)
-					replicaReceiveStatus[i] = false
-					continue
+					return -1
 				}
-				replicaReceiveStatus[i] = true
 				conn.Close()
 			}
 		} else {
@@ -176,8 +172,7 @@ func (client *Client) Write(path string, offset uint64, data []byte) int {
 
 					if err != nil {
 						log.Printf("error when client connecting to chunk server %s: %s", chunkServerAddr, err)
-						replicaReceiveStatus[i] = false
-						done <- true
+						done <- false
 						return
 					}
 					chunkServerClient := cs.NewChunkServerClient(conn)
@@ -186,11 +181,9 @@ func (client *Client) Write(path string, offset uint64, data []byte) int {
 						&cs.WriteDataBundle{TxId: transactionId, Data: data[totalBytesWritten : totalBytesWritten+nBytesToWrite], Size: nBytesToWrite, Ch: chunkHandle, Offset: chunkOffset})
 					if err != nil {
 						log.Printf("error when calling ReceiveWriteData: %s", err)
-						replicaReceiveStatus[i] = false
-						done <- true
+						done <- false
 						return
 					}
-					replicaReceiveStatus[i] = true
 					done <- true
 					return
 				}(i)
@@ -198,6 +191,12 @@ func (client *Client) Write(path string, offset uint64, data []byte) int {
 			cs_wg.Wait()
 			close(done)
 
+			// If any of the replicated writes fail, tell client Write failed.
+			for response := range done {
+				if !response {
+					return -1
+				}
+			}
 		}
 
 		// Client tells primary to commit
