@@ -48,7 +48,7 @@ func NewClient(mAddr string) (*Client, error) {
 	client := new(Client)
 	client.MasterConn = conn
 	client.MasterClient = &c
-	client.ChunkSize = getSystemChunkSizeReply.Size
+	client.ChunkSize = getSystemChunkSizeReply.Size * 1000 // 64kb
 
 	return client, nil
 }
