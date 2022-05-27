@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"gfs/chunkserver/protos"
 	"log"
@@ -16,6 +15,14 @@ import (
 
 var chunkServerTempDirectoryPath = "../temp_dfs_storage/"
 
+var ASYNC = true
+
+type BenchmarkConfig struct {
+	Benchmarking bool
+	OutputDir    string
+	Architecture string // ASYNC OR SEQ
+}
+
 type ChunkServer struct {
 	protos.UnimplementedChunkServerServer
 	ChunkHandleToFile map[uint64]string                  // Chunkhandle to filepath of chunk
@@ -27,6 +34,7 @@ type ChunkServer struct {
 	completedTxs      map[string]bool                    // Set of completed transactions
 	inProgressTxs     map[string]bool                    // Set of transactions currently in progress
 	pendingTxsLock    sync.Mutex                         // Lock for pending Txs list
+	BenchmarkConfig   BenchmarkConfig
 }
 
 func NewChunkServer(addr string) ChunkServer {
@@ -47,6 +55,28 @@ func NewChunkServer(addr string) ChunkServer {
 		completedTxs:      make(map[string]bool),
 		inProgressTxs:     make(map[string]bool),
 		pendingTxsLock:    sync.Mutex{}}
+}
+
+// TODO: issue with wrapping around `NewChunkServer()` because Mutex is copy by value, not reference
+func NewBenchmarkingChunkServer(addr string, config BenchmarkConfig) ChunkServer {
+	fmt.Println("starting up chunkserver " + addr + ".")
+	chunkserverRootDir := chunkServerTempDirectoryPath + addr
+	if err := os.MkdirAll(chunkserverRootDir, os.ModePerm); err != nil {
+		// TO:DO This shouldn't really fatally crash the program, it's just one program
+		log.Fatal(err)
+	}
+
+	return ChunkServer{
+		ChunkHandleToFile: make(map[uint64]string),
+		Rootpath:          chunkserverRootDir,
+		Address:           addr,
+		WriteCache:        make(map[string]*protos.WriteDataBundle),
+		leases:            make(map[uint64]int64),
+		pendingChunkTxs:   make(map[uint64][]string),
+		completedTxs:      make(map[string]bool),
+		inProgressTxs:     make(map[string]bool),
+		pendingTxsLock:    sync.Mutex{},
+		BenchmarkConfig:   config}
 }
 
 func (s *ChunkServer) Read(ctx context.Context, readReq *protos.ReadRequest) (*protos.ReadReply, error) {
@@ -104,23 +134,70 @@ func (s *ChunkServer) PrimaryCommitMutate(ctx context.Context, primaryCommitMuta
 
 	// Forward request to secondaries
 	secondaryChunkServerAddresses := primaryCommitMutateRequest.SecondaryChunkServerAddresses
-	for i := 0; i < len(secondaryChunkServerAddresses); i++ { // TODO: optimize to async
-		secondaryChunkServerAddr := secondaryChunkServerAddresses[i]
-		conn, err := grpc.Dial(secondaryChunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure()) // connecting to secondary chunk server
-		defer conn.Close()
-		if err != nil {
-			s.pendingTxsLock.Unlock()
-			return &protos.Ack{}, errors.New("error occurred when primaryCS dialing to secondaryCS")
+
+	if !ASYNC {
+		for i := 0; i < len(secondaryChunkServerAddresses); i++ {
+			secondaryChunkServerAddr := secondaryChunkServerAddresses[i]
+			conn, err := grpc.Dial(secondaryChunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure()) // connecting to secondary chunk server
+			defer conn.Close()
+			if err != nil {
+				s.pendingTxsLock.Unlock()
+				return &protos.Ack{}, err
+			}
+
+			secondaryChunkServerClient := protos.NewChunkServerClient(conn)
+			_, err = secondaryChunkServerClient.SecondaryCommitMutate(context.Background(), &protos.SecondaryCommitMutateRequest{Ch: chunkHandle, TxIds: mutations})
+			if err != nil {
+				s.pendingTxsLock.Unlock()
+				return &protos.Ack{}, err
+			}
+			// TODO: If forwarding fails, keep trying until success or reach some boundary
+		}
+	} else {
+
+		type response struct {
+			Ack *protos.Ack
+			err error
 		}
 
-		secondaryChunkServerClient := protos.NewChunkServerClient(conn)
-		_, err = secondaryChunkServerClient.SecondaryCommitMutate(context.Background(), &protos.SecondaryCommitMutateRequest{Ch: chunkHandle, TxIds: mutations})
-		if err != nil {
-			s.pendingTxsLock.Unlock()
-			return &protos.Ack{}, errors.New("error occurred on secondaryCommitMutate")
+		done := make(chan response, len(secondaryChunkServerAddresses))
+
+		var client_wg sync.WaitGroup
+		for i := 0; i < len(secondaryChunkServerAddresses); i++ {
+			client_wg.Add(1)
+			go func(i int) {
+				defer client_wg.Done()
+				secondaryChunkServerAddr := secondaryChunkServerAddresses[i]
+				conn, err := grpc.Dial(secondaryChunkServerAddr, grpc.WithTimeout(5*time.Second), grpc.WithInsecure()) // connecting to secondary chunk server
+				defer conn.Close()
+				if err != nil {
+					s.pendingTxsLock.Unlock()
+					done <- response{&protos.Ack{}, err}
+					return
+				}
+
+				secondaryChunkServerClient := protos.NewChunkServerClient(conn)
+				_, err = secondaryChunkServerClient.SecondaryCommitMutate(context.Background(), &protos.SecondaryCommitMutateRequest{Ch: chunkHandle, TxIds: mutations})
+				if err != nil {
+					s.pendingTxsLock.Unlock()
+					done <- response{&protos.Ack{}, err}
+					return
+				}
+
+			}(i)
 		}
-		// TODO: If forwarding fails, keep trying until success or reach some boundary
+		client_wg.Wait()
+		close(done)
+
+		// Check that all async processes did their job; clean ack
+		for response := range done {
+			if response.err != nil {
+				return response.Ack, response.err
+			}
+		}
+
 	}
+
 	s.pendingTxsLock.Unlock()
 
 	return &protos.Ack{Message: "Primary chunkserver " + s.Address + " successfully committed and forwarded"}, nil
