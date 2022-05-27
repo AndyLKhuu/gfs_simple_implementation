@@ -17,6 +17,12 @@ var chunkServerTempDirectoryPath = "../temp_dfs_storage/"
 
 var ASYNC = true
 
+type BenchmarkConfig struct {
+	Benchmarking bool
+	OutputDir    string
+	Architecture string // ASYNC OR SEQ
+}
+
 type ChunkServer struct {
 	protos.UnimplementedChunkServerServer
 	ChunkHandleToFile map[uint64]string                  // Chunkhandle to filepath of chunk
@@ -28,6 +34,7 @@ type ChunkServer struct {
 	completedTxs      map[string]bool                    // Set of completed transactions
 	inProgressTxs     map[string]bool                    // Set of transactions currently in progress
 	pendingTxsLock    sync.Mutex                         // Lock for pending Txs list
+	BenchmarkConfig   BenchmarkConfig
 }
 
 func NewChunkServer(addr string) ChunkServer {
@@ -48,6 +55,28 @@ func NewChunkServer(addr string) ChunkServer {
 		completedTxs:      make(map[string]bool),
 		inProgressTxs:     make(map[string]bool),
 		pendingTxsLock:    sync.Mutex{}}
+}
+
+// TODO: issue with wrapping around `NewChunkServer()` because Mutex is copy by value, not reference
+func NewBenchmarkingChunkServer(addr string, config BenchmarkConfig) ChunkServer {
+	fmt.Println("starting up chunkserver " + addr + ".")
+	chunkserverRootDir := chunkServerTempDirectoryPath + addr
+	if err := os.MkdirAll(chunkserverRootDir, os.ModePerm); err != nil {
+		// TO:DO This shouldn't really fatally crash the program, it's just one program
+		log.Fatal(err)
+	}
+
+	return ChunkServer{
+		ChunkHandleToFile: make(map[uint64]string),
+		Rootpath:          chunkserverRootDir,
+		Address:           addr,
+		WriteCache:        make(map[string]*protos.WriteDataBundle),
+		leases:            make(map[uint64]int64),
+		pendingChunkTxs:   make(map[uint64][]string),
+		completedTxs:      make(map[string]bool),
+		inProgressTxs:     make(map[string]bool),
+		pendingTxsLock:    sync.Mutex{},
+		BenchmarkConfig:   config}
 }
 
 func (s *ChunkServer) Read(ctx context.Context, readReq *protos.ReadRequest) (*protos.ReadReply, error) {
