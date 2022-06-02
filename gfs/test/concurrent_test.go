@@ -1,11 +1,13 @@
 package test
 
 import (
+	"fmt"
 	"gfs/chunkserver"
 	"gfs/client"
 	"gfs/master"
 	"log"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -130,14 +132,14 @@ func Test_ClientWriteRemove(t *testing.T) {
 	done := make(chan bool)
 
 	go func() {
-		actualBytesWritten := c1.Write(longStr, 0, []byte(longStr))
+		actualBytesWritten := c1.Write(largeFileName, 0, []byte(longStr))
 		assert.Equal(t, len(longStr), actualBytesWritten)
 		assert.Equal(t, 0, c1.Remove(largeFileName))
 		done <- true
 	}()
 
 	go func() {
-		actualBytesWritten := c2.Write(medStr, 0, []byte(medStr))
+		actualBytesWritten := c2.Write(medFileName, 0, []byte(medStr))
 		assert.Equal(t, len(medStr), actualBytesWritten)
 		assert.Equal(t, 0, c2.Remove(medFileName))
 		done <- true
@@ -154,5 +156,84 @@ func Test_ClientWriteRemove(t *testing.T) {
 
 	_, largeFileDoesNotExist := os.Stat(largeFileName)
 	assert.Equal(t, true, largeFileDoesNotExist != nil)
+
+}
+
+// Note this is a rough test that can give us data about the time change as the time cost when we increase
+// the number of clients reading from a file.
+func Test_MultipleClientReads(t *testing.T) {
+	nClients := 15
+	path := shared_file_path + "largeFile1" + ".txt"
+	longStr := "Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin literature from 45 BC, making it over 2000 years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, looked up one of the more obscure Latin words, consectetur, from a Lorem Ipsum passage, and going through the cites of the word in classical literature, discovered the undoubtable source. Lorem Ipsum comes from sections 1.10.32 and 1.10.33 of 'de Finibus Bonorum et Malorum' (The Extremes of Good and Evil) by Cicero, written in 45 BC. This book is a treatise on the theory of ethics, very popular during the Renaissance. The first line of Lorem Ipsum, 'Lorem ipsum dolor sit amet..', comes from a line in section 1.10.32. The standard chunk of Lorem Ipsum used since the 1500s is reproduced below for those interested. Sections 1.10.32 and 1.10.33 from 'de Finibus Bonorum et Malorum' by Cicero are also reproduced in their exact original form, accompanied by English versions from the 1914 translation by H. Rackham."
+
+	c, err := client.NewClient(masterServerPort)
+	assert.NoError(t, err)
+	defer c.MasterConn.Close()
+
+	ok := c.Create(path)
+	assert.Equal(t, 0, ok)
+
+	actualBytesWritten := c.Write(path, 0, []byte(longStr))
+	assert.Equal(t, len(longStr), actualBytesWritten)
+
+	done := make(chan bool, nClients)
+	var client_wg sync.WaitGroup
+	for i := 0; i < nClients; i++ {
+		client_wg.Add(1)
+		go func(i int) {
+			defer client_wg.Done()
+
+			c1, err := client.NewClient(masterServerPort)
+			assert.NoError(t, err)
+			defer c1.MasterConn.Close()
+
+			readBuf := make([]byte, len(longStr))
+			actualBytesRead := c1.Read(path, 0, readBuf)
+			assert.Equal(t, len(longStr), actualBytesRead)
+			done <- true
+		}(i)
+
+	}
+
+	client_wg.Wait()
+	close(done)
+}
+
+func Test_ClientCreateWriteRemove(t *testing.T) {
+	nClients := 3
+	done := make(chan bool, nClients)
+	var client_wg sync.WaitGroup
+	for i := 0; i < nClients; i++ {
+		client_wg.Add(1)
+		go func(i int) {
+			defer client_wg.Done()
+
+			c1, err := client.NewClient(masterServerPort)
+			assert.NoError(t, err)
+			defer c1.MasterConn.Close()
+
+			longStr := "Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin literature from 45 BC, making it over 2000 years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, looked up one of the more obscure Latin words, consectetur, from a Lorem Ipsum passage, and going through the cites of the word in classical literature, discovered the undoubtable source. Lorem Ipsum comes from sections 1.10.32 and 1.10.33 of 'de Finibus Bonorum et Malorum' (The Extremes of Good and Evil) by Cicero, written in 45 BC. This book is a treatise on the theory of ethics, very popular during the Renaissance. The first line of Lorem Ipsum, 'Lorem ipsum dolor sit amet..', comes from a line in section 1.10.32. The standard chunk of Lorem Ipsum used since the 1500s is reproduced below for those interested. Sections 1.10.32 and 1.10.33 from 'de Finibus Bonorum et Malorum' by Cicero are also reproduced in their exact original form, accompanied by English versions from the 1914 translation by H. Rackham."
+			largeFileName := shared_file_path + "largeFileCreateWriteRemove" + fmt.Sprint(i) + ".txt"
+			success1 := c1.Create(largeFileName)
+			assert.Equal(t, 0, success1)
+
+			actualBytesWritten := c1.Write(largeFileName, 0, []byte(longStr))
+			assert.Equal(t, len(longStr), actualBytesWritten)
+			assert.Equal(t, 0, c1.Remove(largeFileName))
+
+			_, largeFileDoesNotExist := os.Stat(largeFileName)
+			assert.Error(t, largeFileDoesNotExist)
+
+			done <- true
+		}(i)
+
+	}
+
+	client_wg.Wait()
+	close(done)
+
+	// for d := range done {
+	// 	assert.Equal(t, d, true)
+	// }
 
 }
