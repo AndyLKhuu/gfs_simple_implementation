@@ -28,6 +28,7 @@ type ChunkServer struct {
 	completedTxs      map[string]bool                    // Set of completed transactions
 	inProgressTxs     map[string]bool                    // Set of transactions currently in progress
 	pendingTxsLock    sync.Mutex                         // Lock for pending Txs list
+	writeCacheLock    sync.RWMutex                       // RWLock for Write Cache
 }
 
 func NewChunkServer(addr string) ChunkServer {
@@ -47,7 +48,8 @@ func NewChunkServer(addr string) ChunkServer {
 		pendingChunkTxs:   make(map[uint64][]string),
 		completedTxs:      make(map[string]bool),
 		inProgressTxs:     make(map[string]bool),
-		pendingTxsLock:    sync.Mutex{}}
+		pendingTxsLock:    sync.Mutex{},
+		writeCacheLock:    sync.RWMutex{}}
 }
 
 func (s *ChunkServer) Read(ctx context.Context, readReq *protos.ReadRequest) (*protos.ReadReply, error) {
@@ -73,7 +75,10 @@ func (s *ChunkServer) Read(ctx context.Context, readReq *protos.ReadRequest) (*p
 func (s *ChunkServer) ReceiveWriteData(ctx context.Context, writeBundle *protos.WriteDataBundle) (*protos.Ack, error) {
 	transactionId := writeBundle.TxId
 	ch := writeBundle.Ch
+	s.writeCacheLock.Lock()
 	s.WriteCache[transactionId] = writeBundle
+	s.writeCacheLock.Unlock()
+
 	s.pendingTxsLock.Lock()
 	s.pendingChunkTxs[ch] = append(s.pendingChunkTxs[ch], transactionId)
 	s.pendingTxsLock.Unlock()
@@ -89,6 +94,12 @@ func (s *ChunkServer) PrimaryCommitMutate(ctx context.Context, primaryCommitMuta
 	if s.completedTxs[transactionId] {
 		s.pendingTxsLock.Unlock()
 		return &protos.Ack{Message: "Primary chunkserver " + s.Address + " successfully committed and forwarded"}, nil
+	}
+
+	_, ok := s.ChunkHandleToFile[chunkHandle]
+	if !ok {
+		s.pendingTxsLock.Unlock()
+		return &protos.Ack{Message: fmt.Sprintf("chunk %d not longer exists", chunkHandle)}, nil
 	}
 
 	// Serialize all mutations in some order
@@ -188,11 +199,13 @@ func (s *ChunkServer) CreateNewChunk(ctx context.Context, ch *protos.ChunkHandle
 	chunkHandle := ch.Ch
 	filepath := s.Rootpath + "/" + strconv.FormatUint(uint64(chunkHandle), 10) + ".txt"
 
+	s.pendingTxsLock.Lock()
 	_, err := os.Create(filepath)
 	if err != nil {
 		log.Fatal(err)
 	}
 	s.ChunkHandleToFile[chunkHandle] = filepath
+	s.pendingTxsLock.Unlock()
 
 	return &protos.Ack{Message: "successfully replicated chunk on " + s.Address}, nil
 }
@@ -200,11 +213,16 @@ func (s *ChunkServer) CreateNewChunk(ctx context.Context, ch *protos.ChunkHandle
 func (s *ChunkServer) RemoveChunk(ctx context.Context, ch *protos.ChunkHandle) (*protos.Ack, error) {
 	chunkHandle := ch.Ch
 	filepath := s.Rootpath + "/" + strconv.FormatUint(uint64(chunkHandle), 10) + ".txt"
+
+	s.pendingTxsLock.Lock()
 	err := os.Remove(filepath)
 	if err != nil {
+		s.pendingTxsLock.Unlock()
 		log.Fatal(err)
 	}
-	// TODO update internal DS
+	delete(s.ChunkHandleToFile, chunkHandle)
+	s.pendingTxsLock.Unlock()
+
 	return &protos.Ack{Message: "successfully removed chunk on " + s.Address}, nil
 }
 
@@ -216,12 +234,14 @@ func (s *ChunkServer) ReceiveLease(ctx context.Context, l *protos.LeaseBundle) (
 func (s *ChunkServer) applyMutations(mutationOrder []string, chunkHandle uint64) error {
 	path := chunkServerTempDirectoryPath + s.Address + "/" + strconv.FormatUint(chunkHandle, 10) + ".txt"
 	for _, txId := range mutationOrder {
+		s.writeCacheLock.RLock()
 		bundle, ok := s.WriteCache[txId]
 		// TO:DO Fix this really hacky way to wait for data to be transmitted to secondary.
 		if !ok {
 			time.Sleep(time.Second * 5)
 			bundle, _ = s.WriteCache[txId]
 		}
+		s.writeCacheLock.RUnlock()
 		data := bundle.Data
 		offset := bundle.Offset
 		err := s.localWriteToFile(txId, path, data, offset)
@@ -243,7 +263,9 @@ func (s *ChunkServer) localWriteToFile(transactionId string, path string, data [
 		return err
 	}
 
+	s.writeCacheLock.Lock()
 	delete(s.WriteCache, transactionId)
+	s.writeCacheLock.Unlock()
 	err = file.Close()
 	if err != nil {
 		return err
