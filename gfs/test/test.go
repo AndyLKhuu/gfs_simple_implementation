@@ -49,10 +49,11 @@ func WriteSmallFileTest(c *client.Client) {
 	var str = "hello"
 	var smallFileName = shared_file_path + "smallFile.txt"
 	c.Create(smallFileName)
-	c.Write(smallFileName, 2, []byte(str))
+	c.Write(smallFileName, 0, []byte(str))
 }
 
 func WriteSmallGappedFileTest(c *client.Client) {
+
 	log.Printf("RUNNING TEST: WriteSmallGappedFileTest")
 	var str = "hello"
 	var smallFileGapName = shared_file_path + "smallFileGap.txt"
